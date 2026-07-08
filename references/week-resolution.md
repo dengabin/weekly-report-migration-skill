@@ -23,23 +23,27 @@
 | `粘贴 6.26-7.2 的` | 在 otl 表头/区块中模糊匹配含 `6.26-7.2` 或 `7.2` 的列 |
 | `7月2日那一列` | 匹配部门表头 `7月2日` + `config.week_aliases` |
 
-### 2.2 相对周次（需系统当前日期）
+### 2.2 相对周次（按系统当前日期，不是 otl 里的上一期）
 
-以 Agent 执行时的**系统日期**为「今天」。
+以 Agent 执行时的**系统日期**为「今天」。一周以**周一 00:00 ~ 周日 23:59** 计。
 
 | 用户输入 | 行为 |
 |----------|------|
-| 本周 / 这周 | 同 §1 默认（最新 ≤ 今天） |
-| 上周 / 上一周 / 前一周 | 在 otl 日期区块列表（降序）中，取默认周次的**下一档**（时间更早的一期） |
-| 上上周 | 再往前一档 |
+| 本周 / 这周 | 系统日历**本周**（Mon~Sun）→ 在 otl 中找 `# 日期` 落在此区间内的区块 |
+| 上周 / 上一周 / 前一周 | 系统日历**上周** → 在 otl 中找日期落在上周区间内的区块 |
+| 上上周 | 系统日历**上上周** → 同上 |
 
-实现要点：
+**禁止**：把「上周」理解为 otl 默认周次的「下一档更早区块」。  
+例：系统今天 2026-07-08，上周为 2026-06-29 ~ 2026-07-05，应匹配 otl `# 2026-07-02`，**不是** `# 2026-06-25`。
 
-1. 先 `parse_sections` 得到所有 `(date, label, body)`
-2. 默认周 = `pick_week_section(sections, week=None)`
-3. 「上一周」= 在 `dated` 列表中，找默认周的 index+1（若按时间降序排列）
+实现：`scripts/lib/week_resolve.py` → `calendar_week_bounds` + `pick_section_for_calendar_week`。
 
-若相对周次超出 otl 已有区块：列出可用日期，AskQuestion 让用户选。
+```bash
+python scripts/extract/extract_otl_weekly.py --relative-week 上周 ...
+python scripts/workflow/run_preview.py --relative-week 1
+```
+
+若目标日历周在 otl 中无对应 `# 日期` 区块：列出可用日期，AskQuestion 让用户选。
 
 ---
 
@@ -103,7 +107,9 @@ Agent 在解析用户口语后应**自动更新** `week` 与必要时补充 `wee
 
 ```bash
 python scripts/extract/extract_otl_weekly.py --week 2026-07-02 ...
+python scripts/extract/extract_otl_weekly.py --relative-week 上周 ...
 python scripts/workflow/run_preview.py --week 2026-07-02
+python scripts/workflow/run_preview.py --relative-week 1
 ```
 
 `run_preview` / `apply_migration` 在更新 `config.week` 后应使用同一 `--week` 参数。

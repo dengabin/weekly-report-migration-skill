@@ -24,7 +24,12 @@ def run(cmd: list[str]) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="周报迁移一键预览")
     parser.add_argument("--config", default="config.json")
-    parser.add_argument("--week", default=None, help="覆盖 otl 日期区块，如 2026-07-02")
+    parser.add_argument("--week", default=None, help="绝对日期，如 2026-07-02")
+    parser.add_argument(
+        "--relative-week",
+        default=None,
+        help="相对系统日历：0/本周、1/上周、2/上上周（优先于 --week）",
+    )
     args = parser.parse_args()
 
     CACHE.mkdir(parents=True, exist_ok=True)
@@ -52,7 +57,9 @@ def main() -> int:
         "--output",
         str(CACHE / "extracted.json"),
     ]
-    if args.week:
+    if args.relative_week is not None:
+        extract_cmd.extend(["--relative-week", str(args.relative_week)])
+    elif args.week:
         extract_cmd.extend(["--week", args.week])
     if run(extract_cmd) != 0:
         return 1

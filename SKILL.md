@@ -57,7 +57,7 @@ python scripts/workflow/run_preview.py
 
 1. **静默执行** `pip install -r requirements.txt`（若缺依赖）→ `python scripts/workflow/preflight.py` → 读 `.cache/preflight-report.json`
 2. 若 `config.json` 缺文档链接 → **AskQuestion** 依次收集：组内周报链接 → 部门周报链接（**不问成员**）→ Agent 写入 config
-3. **解析周次**（见 [week-resolution.md](references/week-resolution.md)）：用户未指定则用 otl 最新周；「上周」等按系统日期回溯
+3. **解析周次**（见 [week-resolution.md](references/week-resolution.md)）：用户未指定则用 otl 最新周；「上周」等按**系统日历**计算，再在 otl 中匹配对应日期区块（不是 otl 里的上一期）
 4. **检查部门表是否有本周列**：无列则先插入再迁移；有列则仅覆盖该列
 5. 根据 `status` 分支：
    | status | Agent 动作（全自动，不停下让用户跑命令） |
@@ -119,7 +119,7 @@ python scripts/workflow/preflight.py
 **周次规则**：
 
 - 用户**没说**哪一周 → Agent **不问**，自动取组内 otl **最新一期**
-- 用户说「上周」「上一周」→ 按**系统当前日期**在 otl 中取上一期
+- 用户说「上周」「上一周」→ 按**系统日历**算上周（Mon~Sun），在 otl 中匹配落在该周的 `# 日期` 区块（**不是** otl 默认周的上一档）
 - 部门表必须与组内周报**同一周次、同一批人名**写入
 
 Agent 会：读小组文档 → 自动解析成员 → 检查/插入部门表周列 → 预览 → **等你确认** → 只改对应格子写回。
