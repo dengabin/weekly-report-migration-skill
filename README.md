@@ -30,7 +30,7 @@
 3. **金山文档账号**，对组内 otl、部门 ksheet 有读/写权限
 4. **wps365-read**：无需用户安装 — Agent 自动发现或安装（见下）
 
-`wps365-read` 用于读写 `.ksheet`。首次执行迁移时，Agent 会优先使用本 Skill 内 **`vendor/wps365-read/`**（自动从本机已有副本复制，不含 `auth.yaml`）；该目录**不入 Git**。
+`wps365-read` 用于读写 `.ksheet`。**已内置在本仓库** `vendor/wps365-read/`，用户 clone 后即可使用，无需另行安装。
 
 ---
 

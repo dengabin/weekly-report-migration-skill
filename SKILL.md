@@ -64,7 +64,7 @@ python scripts/workflow/run_preview.py
    | `ready` | 立即执行 `python scripts/workflow/run_preview.py`，展示迁移预览，AskQuestion 确认是否写回 |
    | `need_wps_sid` | 按 [wps-sid-guide.md](references/wps-sid-guide.md) **逐步引导** → AskQuestion 等待用户**下一条消息**粘贴 `wps_sid` → Agent 执行 `setup_wps_sid.py` → 重跑 preflight → **自动续跑** run_preview，不中断 |
    | `need_deps` | Agent 执行 `pip install -r requirements.txt` → 重跑 preflight |
-   | `need_wps365_read` | Agent 执行 `setup_wps365_read.py` 自动发现/克隆；失败则配置 `repo_url` 或 `WPS365_READ_REPO_URL` 后重试；**禁止**让用户找目录 |
+   | `need_wps365_read` | 检查 `vendor/wps365-read` 是否完整；仅当缺失时执行 `setup_wps365_read.py` |
    | `need_config` | AskQuestion 收集组内/部门文档链接（**不问成员、不问周次**）→ `build_config_from_extracted.py` |
    | `dept_read_failed` | 按 wps-sid-guide 引导用户粘贴新 `wps_sid` → 更新并重跑全流程 |
 6. **不得**在 preflight `ready` 之前用 MCP `extract_yundoc_content` 读 ksheet。

@@ -30,6 +30,6 @@
     "root": "",
     "repo_url": "",
     "auto_install": true,
-    "comment": "root 留空则 Agent 自动发现/安装到 vendor/wps365-read；repo_url 或环境变量 WPS365_READ_REPO_URL 用于 git clone"
+    "comment": "默认使用本仓库 vendor/wps365-read；root 留空即可"
   }
 }
