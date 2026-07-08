@@ -6,23 +6,23 @@ alwaysApply: false
 
 # 周报迁移 Agent 约束
 
-触发本 Skill 时：
+## 先区分：安装 vs 迁移
+
+| 用户说 | 做什么 |
+|--------|--------|
+| 「加载 / 安装 skill」 | 确认目录或复制到 `~/.cursor/skills/` → **结束，不要问链接** |
+| 「周报迁移」等触发词 | 读 workflow INDEX → 步骤 1→8 |
+
+## 执行迁移时
 
 1. 先读 `references/workflow/INDEX.md`
-2. **按序**阅读并执行 `references/workflow/01-…md` 至 `08-…md`，每步读完再动手
+2. **按序**阅读并执行 `references/workflow/01-…md` 至 `08-…md`
 3. 用户指南见根目录 `README.md`
 
 ## 硬性规定
 
 - 禁止让用户跑 python/pip；禁止索要成员名单；未指定周次时不询问
+- **安装阶段禁止** preflight、禁止 AskQuestion 要文档链接
 - 缺 wps_sid：按 `references/wps-sid-guide.md` 引导 → 等待粘贴 → 自动续跑
 - 写回前必须完成步骤 6 用户确认；仅改指定周次内容列
 - 写回成功后默认清理 `.cache`；用户说保留时用 `--keep-cache`
-
-## 入口命令（Agent 执行）
-
-```
-python scripts/workflow/preflight.py
-python scripts/workflow/run_preview.py
-python scripts/workflow/apply_migration.py --upload
-```

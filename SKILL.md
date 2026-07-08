@@ -5,23 +5,28 @@ description: >-
   仅修改目标单元格/段落，不重写整份文档。Agent 必读 references/workflow/INDEX.md 按步骤1-8执行。
   用户指南见 README.md。支持金山文档（kdocs.cn）智能文档 .otl、表格 .xlsx/.et、文字 .docx。
   触发词：周报迁移、填部门周报、同步周报、weekly report migration、复制周报到部门、周报汇总。
+  注意：用户仅说「加载/安装 skill」时不要执行迁移、不要索要文档链接。
+disable-model-invocation: true
 ---
 
 ---
 
-## ⛔ Agent 必读（加载 Skill 后第一件事）
+## ⛔ 两种场景（必须先区分）
 
-**在跑任何脚本之前**，必须先阅读 **[references/workflow/INDEX.md](references/workflow/INDEX.md)**，再**按步骤 1 → 8 依次**阅读并执行各步 MD：
+| 用户意图 | 典型说法 | Agent 做什么 | **禁止** |
+|----------|----------|--------------|----------|
+| **A. 安装 / 识别 Skill** | 「加载这个 skill」「安装 skill」「打开这个目录」 | 确认目录含 `SKILL.md`；可选复制到 `~/.cursor/skills/`；简短说明能力 | ❌ 不跑 preflight；❌ 不 AskQuestion 要文档链接；❌ 不 pip install |
+| **B. 执行周报迁移** | 「周报迁移」「填部门周报」「同步周报」 | 读 workflow 1→8 → 预检 → 缺 config 时才问链接 | — |
 
-1. `01-原则与用户边界.md` → 2. `02-首次配置` → 3. `03-环境预检` → 4. `04-周次与部门列` → 5. `05-提取与计划` → 6. `06-预览确认` → 7. `07-写回` → 8. `08-校验汇报`
+**只有场景 B 才进入下方迁移流程。** 场景 A 结束时回复一句即可，例如：
 
-用户使用说明见 **[README.md](README.md)**。Cursor 规则：`.cursor/rules/report-migration-agent.mdc`
+> Skill 已就绪。需要迁移时说「**周报迁移**」，届时再提供组内/部门文档链接。
 
 ---
 
-## ⛔ Skill 加载后第一步（自动预检，必须执行）
+## ⛔ 执行迁移时（场景 B：用户已触发迁移）
 
-用户触发本 Skill 后，**在读取云文档或迁移之前**，必须先在本 Skill 根目录执行：
+**在用户明确要执行迁移之后**，在读取云文档或写回之前，在本 Skill 根目录执行：
 
 ```bash
 pip install -r requirements.txt
@@ -36,7 +41,9 @@ python scripts/workflow/run_preview.py
 
 ### Agent 自动处理规则（用户不跑脚本）
 
-**硬性规定**（详见 [references/workflow/INDEX.md](references/workflow/INDEX.md)）：
+**执行迁移前**必须先阅读 **[references/workflow/INDEX.md](references/workflow/INDEX.md)**，再按步骤 1→8 依次阅读并执行。
+
+**硬性规定**（详见 workflow）：
 
 - ❌ **禁止**让用户自己运行 `python scripts/...`、pip、或任何终端命令
 - ❌ **禁止**让用户手动配置环境、下载/上传云文档、编辑 config
