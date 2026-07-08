@@ -116,7 +116,7 @@ python scripts/plan/list_dept_sheets.py --config config.json --input .cache/dept
 | `col_match.row` | 表头行号（1-based，默认 `options.sheet_header_row`） |
 | `col_match.equals` | 与 `config.week` 或 `week_aliases` 匹配 |
 
-**行匹配增强**：若部门表按小组分块，可先匹配 `options.team_row_marker` 所在行区间，再在该区间内找姓名。
+**行匹配增强**：若部门表按小组分块，须先通过 `resolve_team_name.py` 确定 `team_name`，再设置 `options.team_row_marker`，仅在该组区块内找姓名。详见 [team-name-resolution.md](team-name-resolution.md)。
 
 ### `heading_block`（.otl 部门文档）
 

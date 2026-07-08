@@ -22,8 +22,9 @@ alwaysApply: false
 ## 硬性规定
 
 - 禁止让用户跑 python/pip；禁止索要成员名单；未指定周次时不询问
+- 部门表多组：姓名能唯一对应则不问组名；无法确定时必须问，禁止猜组（见 `references/team-name-resolution.md`）
 - **安装阶段禁止** preflight、禁止 AskQuestion 要文档链接
-- 缺 wps365-read：执行 `setup_wps365_read.py`，禁止让用户找目录
+- 缺 wps365-read：检查 `vendor/wps365-read`；禁止让用户找目录
 - 缺 wps_sid：按 `references/wps-sid-guide.md` 引导 → 等待粘贴 → 自动续跑
 - 写回前必须完成步骤 6 用户确认；仅改指定周次内容列
 - 写回成功后默认清理 `.cache`；用户说保留时用 `--keep-cache`

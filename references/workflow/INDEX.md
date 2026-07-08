@@ -23,7 +23,9 @@
    - [../wps-sid-guide.md](../wps-sid-guide.md)  
    - [../week-resolution.md](../week-resolution.md)  
    - [../ksheet-mcp-limitation.md](../ksheet-mcp-limitation.md)  
-   - [../mapping-rules.md](../mapping-rules.md)
+   - [../team-name-resolution.md](../team-name-resolution.md)  
+   - [../mapping-rules.md](../mapping-rules.md)  
+   - [../../vendor/README.md](../../vendor/README.md)（内置 wps365-read）
 
 ## 一键脚本对照
 

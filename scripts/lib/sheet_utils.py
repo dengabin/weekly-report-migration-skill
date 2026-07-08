@@ -156,6 +156,123 @@ def find_cell_in_rows(
     return None
 
 
+def is_member_name_cell(cell: str, member_names: list[str]) -> bool:
+    cell = (cell or "").strip()
+    if not cell:
+        return False
+    if cell in member_names:
+        return True
+    return any(m in cell for m in member_names)
+
+
+def nearest_group_above(
+    rows: list[list[Any]],
+    row_idx: int,
+    member_names: list[str],
+    header_row: int,
+    name_col: int,
+) -> str | None:
+    """从成员行向上找最近的组标题行（姓名列不含任何 otl 成员名的行）。"""
+    for i in range(row_idx - 1, header_row, -1):
+        if i < 0 or len(rows[i]) <= name_col:
+            continue
+        cell = str(rows[i][name_col] or "").strip()
+        if not cell or cell in ("部门周报",):
+            continue
+        if not is_member_name_cell(cell, member_names):
+            return cell
+        if "-" in cell:
+            prefix = cell.split("-", 1)[0].strip()
+            if prefix and not is_member_name_cell(prefix, member_names):
+                return prefix
+    return None
+
+
+def resolve_team_from_members(
+    rows: list[list[Any]],
+    member_names: list[str],
+    cfg: dict,
+) -> dict:
+    """
+    根据 otl 成员姓名在部门子表中反推组名。
+    全部成员落在同一组 → resolved；跨组/重名/找不到 → 需用户指定组名。
+    """
+    options = cfg.get("options", {})
+    header_row = int(options.get("sheet_header_row", 1)) - 1
+    name_col = col_letter_to_index(options.get("sheet_name_column", "B"))
+
+    member_groups: dict[str, str] = {}
+    ambiguous: list[str] = []
+    not_found: list[str] = []
+
+    for member in member_names:
+        found_rows: list[int] = []
+        for i in range(header_row + 1, len(rows)):
+            if len(rows[i]) <= name_col:
+                continue
+            cell = str(rows[i][name_col] or "").strip()
+            if not cell or cell in ("部门周报",):
+                continue
+            if member in cell or cell == member:
+                found_rows.append(i)
+
+        if not found_rows:
+            not_found.append(member)
+            continue
+
+        groups: set[str] = set()
+        for ri in found_rows:
+            g = nearest_group_above(rows, ri, member_names, header_row, name_col)
+            if g:
+                groups.add(g)
+
+        if len(groups) == 1:
+            member_groups[member] = next(iter(groups))
+        elif len(groups) > 1:
+            ambiguous.append(member)
+        else:
+            ambiguous.append(member)
+
+    unique_groups = set(member_groups.values())
+    if len(unique_groups) == 1 and not ambiguous:
+        team = next(iter(unique_groups))
+        return {
+            "status": "resolved",
+            "team_name": team,
+            "member_groups": member_groups,
+            "not_found": not_found,
+            "reason": f"全部可匹配成员均落在组 {team!r}",
+        }
+    if len(unique_groups) > 1 or ambiguous:
+        return {
+            "status": "ambiguous",
+            "member_groups": member_groups,
+            "ambiguous_members": ambiguous,
+            "not_found": not_found,
+            "candidates": sorted(unique_groups),
+            "reason": "成员对应多个组或存在重名行，无法自动确定组名",
+        }
+    if not_found and not member_groups:
+        return {
+            "status": "not_found",
+            "not_found": not_found,
+            "reason": "部门表中未找到任何 otl 成员姓名",
+        }
+    return {
+        "status": "need_team_name",
+        "member_groups": member_groups,
+        "not_found": not_found,
+        "reason": "无法从姓名唯一确定组名，需用户提供组名",
+    }
+
+
+def apply_team_name_to_config(cfg: dict, team_name: str) -> None:
+    cfg["team_name"] = team_name
+    opts = cfg.setdefault("options", {})
+    opts["team_row_marker"] = team_name
+    opts["use_team_name_as_marker"] = True
+
+
 def kdc_sheet_to_rows(sheet: dict) -> list[list[str]]:
     """将 KDC JSON 中单个子表的 data 转为二维字符串数组。"""
     rows: list[list[str]] = []

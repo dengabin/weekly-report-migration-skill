@@ -15,7 +15,7 @@ def load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def members_from_extracted(ext: dict, week: str) -> list[dict]:
+def members_from_extracted(ext: dict, week: str, name_column: str = "B") -> list[dict]:
     members = []
     for m in ext.get("members", []):
         name = m["name"]
@@ -25,7 +25,7 @@ def members_from_extracted(ext: dict, week: str) -> list[dict]:
                 "extract": {"type": "heading", "heading": f"## {name}", "level": 2},
                 "target": {
                     "type": "sheet_cell",
-                    "row_match": {"column": "A", "contains": name},
+                    "row_match": {"column": name_column, "contains": name},
                     "col_match": {"row": 1, "equals": week},
                 },
             }
@@ -67,8 +67,9 @@ def main() -> int:
         return 1
 
     cfg["week"] = week
-    cfg["members"] = members_from_extracted(ext, week)
     opts = cfg.setdefault("options", {})
+    name_col = opts.get("sheet_name_column", "B")
+    cfg["members"] = members_from_extracted(ext, week, name_col)
     opts["otl_week_section"] = week
 
     args.config.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")

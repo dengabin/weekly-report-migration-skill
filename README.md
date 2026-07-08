@@ -11,7 +11,7 @@
 | Agent 自动完成 | 你只需要 |
 |----------------|----------|
 | 获取 / 安装 Skill 到本机 | 说「加载 skill」或打开目录 |
-| 自动发现/安装 wps365-read | 无需用户操作（缺仓库时由组织配置 `repo_url`） |
+| 内置 wps365-read（`vendor/`） | clone 即有，无需安装 |
 | 安装依赖、预检环境 | **说「周报迁移」之后**；首次再提供两个云文档链接 |
 | 从组内 otl 读取每人本周周报 | 缺凭证时粘贴 `wps_sid` |
 | 按姓名、周次匹配部门表并写回 | 预览后回复「确认」 |
@@ -28,9 +28,7 @@
 1. **Cursor** 编辑器（已安装并可正常登录）
 2. **Python 3.10+**（本机有即可，**不用自己跑**；Agent 自动安装依赖）
 3. **金山文档账号**，对组内 otl、部门 ksheet 有读/写权限
-4. **wps365-read**：无需用户安装 — Agent 自动发现或安装（见下）
-
-`wps365-read` 用于读写 `.ksheet`。**已内置在本仓库** `vendor/wps365-read/`，用户 clone 后即可使用，无需另行安装。
+4. **wps365-read**：已内置在 `vendor/wps365-read/`，`git clone` 本仓库即可，无需另行安装
 
 ---
 
@@ -132,7 +130,9 @@ Agent 会检查环境（依赖、凭证、云文档可读性）。
 | 2 | 部门周报链接 | 粘贴 ksheet 链接，如 `https://365.kdocs.cn/l/DEPT_LINK_ID` |
 | 3（少数情况） | 部门子表叫什么 | 从 Agent 给出的子表列表里选择 |
 
-**Agent 不会问**：组成员名单、周次（除非你主动指定）。
+**Agent 不会问**：组成员名单、周次（除非你主动指定）、组名（当 otl 里的姓名能在部门表唯一对应到同一组时）。
+
+若你**直接粘贴**组内周报正文（含 `# 日期` 和 `## 姓名`），Agent 也会接受，不必只给链接。若部门表里有多个组且无法从姓名判断归属，Agent 会问你**要迁移哪个组的组名**，不会随意写入。
 
 ---
 
@@ -262,7 +262,11 @@ Agent：已写回，请 Ctrl+F5 刷新部门表
 | 本仓库 | https://github.com/dengabin/weekly-report-migration-skill |
 | [SKILL.md](SKILL.md) | Agent 技术入口（用户无需阅读） |
 | [references/wps-sid-guide.md](references/wps-sid-guide.md) | 获取 wps_sid |
+| [vendor/README.md](vendor/README.md) | 内置 wps365-read 说明 |
+| [references/ksheet-mcp-limitation.md](references/ksheet-mcp-limitation.md) | 为何需要 wps365-read、MCP 限制 |
+| [references/team-name-resolution.md](references/team-name-resolution.md) | 多组部门表下何时自动识别组名、何时需询问 |
 | [references/mapping-rules.md](references/mapping-rules.md) | 部门表行列规则 |
+| [references/workflow/INDEX.md](references/workflow/INDEX.md) | Agent 分步约束索引 |
 
 ---
 

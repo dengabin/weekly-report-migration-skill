@@ -57,6 +57,41 @@ def main() -> int:
     if run(extract_cmd) != 0:
         return 1
 
+    build_cmd = [
+        sys.executable,
+        str(PLAN / "build_config_from_extracted.py"),
+        "--config",
+        args.config,
+        "--extracted",
+        str(CACHE / "extracted.json"),
+    ]
+    if args.week:
+        build_cmd.extend(["--week", args.week])
+    if run(build_cmd) != 0:
+        return 1
+
+    resolve_cmd = [
+        sys.executable,
+        str(PLAN / "resolve_team_name.py"),
+        "--config",
+        args.config,
+        "--extracted",
+        str(CACHE / "extracted.json"),
+        "--dept-kdc-json",
+        str(CACHE / "dept-content.json"),
+        "--dept-markdown",
+        str(CACHE / "dept-report.md"),
+    ]
+    code = run(resolve_cmd)
+    if code == 3:
+        report = CACHE / "team-resolve.json"
+        if report.exists():
+            print(report.read_text(encoding="utf-8"), file=sys.stderr)
+        print("\n需要用户指定组名：见 references/team-name-resolution.md", file=sys.stderr)
+        return code
+    if code != 0:
+        return code
+
     format_cmd = [
         sys.executable,
         str(EXTRACT / "format_otl_for_ksheet.py"),
