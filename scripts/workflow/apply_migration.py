@@ -175,25 +175,6 @@ def main() -> int:
         ) != 0:
             return 1
 
-    if run_step(
-        [
-            sys.executable,
-            str(PLAN / "plan_sheet_patches.py"),
-            "--config",
-            args.config,
-            "--dept-kdc-json",
-            str(CACHE / "dept-content.json"),
-            "--extracted",
-            str(CACHE / "extracted.json"),
-            "--output",
-            str(CACHE / "patch-plan.json"),
-        ]
-    ) != 0:
-        return 1
-
-    plan = load_json_file(CACHE / "patch-plan.json")
-    extracted = load_json_file(CACHE / "extracted.json")
-
     link_id = args.link_id or (cfg.get("dept_report") or {}).get("link_id")
     if args.upload and not args.skip_download and link_id:
         sid, _ = resolve_wps_sid(cfg)
@@ -206,6 +187,37 @@ def main() -> int:
     if not input_path or not input_path.exists():
         print("未找到部门 ksheet，请先运行 scripts/workflow/preflight.py", file=sys.stderr)
         return 1
+
+    week = cfg.get("week")
+    if week and input_path.suffix.lower() == ".ksheet":
+        ensure_cmd = [
+            sys.executable,
+            str(WORKFLOW / "ensure_week_column.py"),
+            "--config",
+            args.config,
+        ]
+        if run_step(ensure_cmd) != 0:
+            return 1
+        input_path = find_dept_ksheet(CACHE, cfg) or input_path
+
+    plan_src = ["--dept-ksheet", str(input_path)] if input_path.suffix.lower() == ".ksheet" else ["--dept-kdc-json", str(CACHE / "dept-content.json")]
+    if run_step(
+        [
+            sys.executable,
+            str(PLAN / "plan_sheet_patches.py"),
+            "--config",
+            args.config,
+            *plan_src,
+            "--extracted",
+            str(CACHE / "extracted.json"),
+            "--output",
+            str(CACHE / "patch-plan.json"),
+        ]
+    ) != 0:
+        return 1
+
+    plan = load_json_file(CACHE / "patch-plan.json")
+    extracted = load_json_file(CACHE / "extracted.json")
 
     ready = [p for p in plan.get("patches", []) if p.get("status") == "ready"]
     if len(ready) != len(cfg.get("members", [])):

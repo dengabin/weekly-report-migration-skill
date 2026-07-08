@@ -122,13 +122,47 @@ def detect_name_col_in_xml(sheet_xml: str, sst_xml: str, cfg: dict) -> int:
     return 2  # B
 
 
-def detect_insert_col_index(sheet_xml: str, sst_xml: str, cfg: dict) -> int:
-    """找到最右侧固定列（链接列或姓名列）之后的第一个内容列位置。"""
-    link_col = detect_link_col_in_xml(sheet_xml, sst_xml)
-    if link_col is not None:
-        return link_col + 1
+def detect_insert_col_index(sheet_xml: str, sst_xml: str, cfg: dict, week: str) -> int:
+    """根据表头日期顺序，找到新周列应插入的位置（1-based）。
+
+    表头中日期列按降序排列（最新在左、最旧在右），新周插入到
+    第一个比自己旧的日期列位置（把它及右侧全部右移）。
+    若无日期列，回退到固定列之后。
+    """
     name_col = detect_name_col_in_xml(sheet_xml, sst_xml, cfg)
-    return name_col + 1
+    date_re = re.compile(r"(\d+)月(\d+)日")
+
+    date_cols: list[tuple[int, int, int]] = []
+    for cm in re.finditer(r'<c r="([A-Z]+)1"[^>]*>.*?</c>', sheet_xml, re.DOTALL):
+        col_letter = cm.group(1)
+        col_idx = col_letter_to_index(col_letter)
+        if col_idx <= name_col:
+            continue
+        text = read_cell_text_from_xml(sheet_xml, sst_xml, f"{col_letter}1")
+        if text:
+            dm = date_re.search(text)
+            if dm:
+                date_cols.append((col_idx, int(dm.group(1)), int(dm.group(2))))
+
+    if not date_cols:
+        link_col = detect_link_col_in_xml(sheet_xml, sst_xml)
+        if link_col is not None and link_col > name_col:
+            return link_col + 1
+        return name_col + 1
+
+    date_cols.sort(key=lambda x: x[0])
+
+    try:
+        new_d = datetime.strptime(week[:10], "%Y-%m-%d").date()
+        new_month, new_day = new_d.month, new_d.day
+    except ValueError:
+        return date_cols[0][0]
+
+    for col_idx, month, day in date_cols:
+        if (new_month, new_day) > (month, day):
+            return col_idx
+
+    return date_cols[-1][0] + 1
 
 
 def shift_cell_refs_in_sheet(sheet_xml: str, min_col_index: int) -> str:
@@ -325,7 +359,7 @@ def insert_week_column(
             "message": "周列已存在，跳过插入",
         }
 
-    insert_col = detect_insert_col_index(sheet_xml, sst_xml, cfg)
+    insert_col = detect_insert_col_index(sheet_xml, sst_xml, cfg, week)
     header_text = format_week_header(week, aliases)
     header_style = get_cell_style_id(sheet_xml, f"{index_to_col(insert_col)}1") or "3"
     # 插入后内容列样式参考原 insert_col 列（shift 前）
