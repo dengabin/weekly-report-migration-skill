@@ -1,0 +1,19 @@
+# 运行中间产物
+.cache/
+
+# 用户本地配置与凭证（勿提交）
+config.json
+assets/config/auth.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 编辑器 / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

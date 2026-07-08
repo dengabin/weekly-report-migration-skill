@@ -1,0 +1,4 @@
+# 复制为 auth.yaml 后填写。获取方式见 references/ksheet-mcp-limitation.md
+wps:
+  sid: "<wps_sid>"
+  api_base: "https://api.wps.cn"
