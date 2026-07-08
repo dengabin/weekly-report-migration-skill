@@ -347,7 +347,7 @@ python skills/drive/run.py update <dept_link_id> <patched-file> --confirm
 - ❌ **禁止改正文内容**：`content_raw` 为真源；格式化**仅**允许列表符、缩进、续行缩进、单元格样式（从同行历史列复制）
 - ❌ **禁止修改用户未指定周次的列**：只粘贴/覆盖**本次 `config.week`** 对应列
 - ✅ **部门表无本周列时**：按 [week-resolution.md](references/week-resolution.md) **插入新列**后再写入；有列则仅覆盖该列内容格
-- ✅ **仅目标内容列写入**；D 列文件链接、E 列历史周报原样保留
+- ✅ **仅目标内容列写入**；其它列（含文件链接列、历史周报列）原样保留
 - ✅ **`.ksheet` 必须用** `scripts/patch/patch_ksheet_zip.py`；写回后校验 `hypersublink` 数量不变
 
 其它反模式：
