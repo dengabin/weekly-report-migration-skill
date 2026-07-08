@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 
 from wps365_bridge import (  # noqa: E402
     ensure_cache,
+    ensure_wps365_read,
     find_wps365_read_root,
     resolve_wps_sid,
     run_drive,
@@ -94,6 +95,8 @@ def main() -> int:
         return FAIL
 
     wps_root = find_wps365_read_root(cfg)
+    if not wps_root:
+        wps_root = ensure_wps365_read(cfg, write_config_root=args.config)
     report["checks"]["wps365_read"] = {
         "ok": wps_root is not None,
         "root": str(wps_root) if wps_root else None,
@@ -101,8 +104,9 @@ def main() -> int:
     if not wps_root:
         report["status"] = "need_wps365_read"
         report["hint"] = (
-            "在 config.json 的 wps365_read.root 填写 wps365-read 目录，"
-            "或将其放到 .cursor/skills/wps365-read"
+            "Agent 应执行 python scripts/workflow/setup_wps365_read.py 自动发现或安装；"
+            "仍失败时在 config.json 设置 wps365_read.repo_url 或环境变量 WPS365_READ_REPO_URL。"
+            "禁止让用户手动找目录。"
         )
         _write_report(args.output, report)
         return FAIL

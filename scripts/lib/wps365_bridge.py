@@ -35,6 +35,7 @@ def find_wps365_read_root(cfg: dict | None = None) -> Path | None:
 
     candidates.extend(
         [
+            SKILL_ROOT / "vendor" / "wps365-read",
             Path.home() / ".cursor" / "skills" / "wps365-read",
             Path.home() / ".agents" / "skills" / "wps365-read",
         ]
@@ -55,6 +56,90 @@ def find_wps365_read_root(cfg: dict | None = None) -> Path | None:
         if (base / "skills" / "drive" / "run.py").exists():
             return base.resolve()
     return None
+
+
+def discover_wps365_read_glob() -> Path | None:
+    """在常见目录树中搜索 wps365-read，无需用户手填路径。"""
+    search_roots: list[Path] = []
+    for base in (SKILL_ROOT, SKILL_ROOT.parent, Path.home() / ".cursor" / "skills"):
+        if base.exists():
+            search_roots.append(base.resolve())
+
+    seen: set[str] = set()
+    for base in search_roots:
+        try:
+            for run_py in base.glob("**/wps365-read/skills/drive/run.py"):
+                root = run_py.resolve().parent.parent.parent
+                key = str(root)
+                if key in seen:
+                    continue
+                seen.add(key)
+                if root.name == "wps365-read":
+                    return root
+        except OSError:
+            continue
+    return None
+
+
+def install_wps365_read(cfg: dict | None = None) -> tuple[Path | None, str]:
+    """
+    尝试为用户环境准备 wps365-read。
+    返回 (root, message)。
+    """
+    cfg = cfg or {}
+    wps_cfg = cfg.get("wps365_read") or {}
+    target = SKILL_ROOT / "vendor" / "wps365-read"
+
+    existing = find_wps365_read_root(cfg)
+    if existing:
+        return existing, f"已存在: {existing}"
+
+    discovered = discover_wps365_read_glob()
+    if discovered:
+        return discovered, f"已自动发现: {discovered}"
+
+    repo_url = (os.environ.get("WPS365_READ_REPO_URL") or wps_cfg.get("repo_url") or "").strip()
+    if repo_url:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if target.exists():
+            import shutil
+
+            shutil.rmtree(target, ignore_errors=True)
+        proc = subprocess.run(
+            ["git", "clone", "--depth", "1", repo_url, str(target)],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if proc.returncode == 0 and (target / "skills" / "drive" / "run.py").exists():
+            return target.resolve(), f"已从仓库安装到 {target}"
+        err = (proc.stderr or proc.stdout or "clone failed")[:500]
+        return None, f"git clone 失败: {err}"
+
+    return (
+        None,
+        "未找到 wps365-read。Agent 应执行 setup_wps365_read.py；"
+        "若仍失败，在 config.json 设置 wps365_read.repo_url 或环境变量 WPS365_READ_REPO_URL",
+    )
+
+
+def ensure_wps365_read(cfg: dict | None = None, *, write_config_root: Path | None = None) -> Path | None:
+    """发现或安装 wps365-read；可选将 root 写回 config.json。"""
+    cfg = cfg or {}
+    if find_wps365_read_root(cfg):
+        return find_wps365_read_root(cfg)
+
+    auto = (cfg.get("wps365_read") or {}).get("auto_install", True)
+    if not auto:
+        return None
+
+    root, _msg = install_wps365_read(cfg)
+    if root and write_config_root and write_config_root.exists():
+        data = json.loads(write_config_root.read_text(encoding="utf-8"))
+        data.setdefault("wps365_read", {})["root"] = str(root)
+        write_config_root.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    return root
 
 
 def _read_auth_yaml(path: Path) -> str | None:

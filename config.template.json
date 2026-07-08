@@ -28,7 +28,8 @@
   },
   "wps365_read": {
     "root": "",
-    "auto_discover": true,
-    "comment": "root 留空则自动搜索 .cursor/skills/wps365-read；凭证放 assets/config/auth.yaml"
+    "repo_url": "",
+    "auto_install": true,
+    "comment": "root 留空则 Agent 自动发现/安装到 vendor/wps365-read；repo_url 或环境变量 WPS365_READ_REPO_URL 用于 git clone"
   }
 }

@@ -52,14 +52,19 @@ kdocs 链接
 
 ## 要让 Agent 能读/写 ksheet
 
-### 方案 A：wps365-read + WPS_SID（推荐）
+### 方案 A：wps365-read + WPS_SID（本 Skill 默认）
 
-1. 本机安装 `wps365-read`（Agent 可自动发现常见路径）
-2. 获取 **WPS_SID**：浏览器登录 365.kdocs.cn → F12 → Cookies → 复制 `wps_sid`
-3. Agent 执行 `setup_wps_sid.py` 写入 `assets/config/auth.yaml`
-4. 验证：`python scripts/workflow/preflight.py` 中 `dept_read` 为 ok
+**用户无需手动安装。** Agent 在预检时自动：
 
-详见 [wps-sid-guide.md](wps-sid-guide.md)。
+1. 在 `~/.cursor/skills/`、`vendor/`、工作区父目录等搜索已有 `wps365-read`
+2. 若配置了 `wps365_read.repo_url` 或环境变量 `WPS365_READ_REPO_URL`，`git clone` 到 `vendor/wps365-read/`
+3. 将发现的路径写入 `config.json` 的 `wps365_read.root`
+
+手动命令（仅 Agent 执行）：
+
+```bash
+python scripts/workflow/setup_wps365_read.py
+```
 
 ### 方案 B：手动下载部门表
 

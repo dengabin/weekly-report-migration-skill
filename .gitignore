@@ -5,6 +5,9 @@
 config.json
 assets/config/auth.yaml
 
+# Agent 自动安装的 wps365-read（勿提交）
+vendor/wps365-read/
+
 # Python
 __pycache__/
 *.py[cod]
