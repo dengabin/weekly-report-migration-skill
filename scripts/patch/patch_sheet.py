@@ -123,10 +123,16 @@ def apply_patches(
         col = int(patch["col"])
         old = ws.cell(row=row, column=col).value
         target = ws.cell(row=row, column=col)
-        # 参考同行历史周列（C→E，+2 列）的字体与换行
-        template = ws.cell(row=row, column=col + 2) if col + 2 <= (ws.max_column or 1) else None
-        if template and (not template.value or str(template.value).strip() == "" or str(template.value).strip().startswith("📄")):
-            template = ws.cell(row=row, column=col + 3) if col + 3 <= (ws.max_column or 1) else template
+        # 参考同行后续列（跳过链接和空列）的字体与换行
+        template = None
+        for offset in range(1, 5):
+            tc = col + offset
+            if tc > (ws.max_column or 1):
+                break
+            c = ws.cell(row=row, column=tc)
+            if c.value and str(c.value).strip() and not str(c.value).strip().startswith("📄"):
+                template = c
+                break
         set_plain_text_cell(target, source, template)
         applied.append(
             {

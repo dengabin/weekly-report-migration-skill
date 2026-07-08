@@ -177,8 +177,30 @@ def format_otl_content(text: str, reference: str | None = None) -> str:
     return "\n".join(out)
 
 
-def load_reference_by_name(kdc_path: Path, sheet_name: str, ref_col_index: int = 4) -> dict[str, str]:
-    """从 KDC JSON 读取每人历史周列文本。ref_col_index=4 即 E 列（0-based）。"""
+def _detect_name_col_from_rows(rows: list) -> int:
+    """从表头推断姓名列（0-based）。"""
+    if not rows:
+        return 1
+    for j, cell in enumerate(rows[0]):
+        text = str(cell or "").strip()
+        if "姓名" in text or "名字" in text or "name" in text.lower():
+            return j
+    return 1
+
+
+def _detect_first_content_col(rows: list, name_col: int) -> int:
+    """找到姓名列之后第一个含实际内容（非链接、非空）的列索引。"""
+    for i in range(1, min(6, len(rows))):
+        row = rows[i]
+        for j in range(name_col + 1, len(row)):
+            text = str(row[j] or "").strip()
+            if text and not text.startswith("📄"):
+                return j
+    return name_col + 1
+
+
+def load_reference_by_name(kdc_path: Path, sheet_name: str, ref_col_index: int | None = None) -> dict[str, str]:
+    """从 KDC JSON 读取每人历史周列文本作为格式参考。"""
     from sheet_utils import find_sheet_in_kdc, kdc_sheet_to_rows
 
     data = json.loads(kdc_path.read_text(encoding="utf-8"))
@@ -187,11 +209,14 @@ def load_reference_by_name(kdc_path: Path, sheet_name: str, ref_col_index: int =
     if not sheet:
         return {}
     rows = kdc_sheet_to_rows(sheet)
+    name_col = _detect_name_col_from_rows(rows)
+    if ref_col_index is None:
+        ref_col_index = _detect_first_content_col(rows, name_col)
     refs: dict[str, str] = {}
     for row in rows[1:]:
-        if len(row) < 2:
+        if len(row) <= name_col:
             continue
-        name = (row[1] or "").strip()
+        name = (row[name_col] or "").strip()
         if not name or name in ("部门周报",):
             continue
         ref = row[ref_col_index] if len(row) > ref_col_index else ""

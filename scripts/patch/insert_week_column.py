@@ -99,13 +99,36 @@ def header_row_has_week(sheet_xml: str, sst_xml: str, week: str, aliases: list[s
     return False
 
 
-def detect_insert_col_index(sheet_xml: str, sst_xml: str) -> int:
-    """C 列为链接列时新周内容插在 D；否则插在 C。"""
-    for row in range(2, 6):
-        text = read_cell_text_from_xml(sheet_xml, sst_xml, f"C{row}")
-        if text and text.strip().startswith("📄"):
-            return 4  # D
-    return 3  # C
+def detect_link_col_in_xml(sheet_xml: str, sst_xml: str) -> int | None:
+    """扫描前几行数据行，找到内容以 📄 开头的列（1-based）。"""
+    for row in range(2, 8):
+        for cm in re.finditer(rf'<c r="([A-Z]+){row}"[^>]*>.*?</c>', sheet_xml, re.DOTALL):
+            ref = f"{cm.group(1)}{row}"
+            text = read_cell_text_from_xml(sheet_xml, sst_xml, ref)
+            if text and text.strip().startswith("📄"):
+                return col_letter_to_index(cm.group(1))
+    return None
+
+
+def detect_name_col_in_xml(sheet_xml: str, sst_xml: str, cfg: dict) -> int:
+    """从 config 或表头推断姓名列（1-based）。"""
+    opts = cfg.get("options", {})
+    if opts.get("sheet_name_column"):
+        return col_letter_to_index(opts["sheet_name_column"])
+    for cm in re.finditer(r'<c r="([A-Z]+)1"[^>]*>.*?</c>', sheet_xml, re.DOTALL):
+        text = read_cell_text_from_xml(sheet_xml, sst_xml, f"{cm.group(1)}1")
+        if text and ("姓名" in text or "名字" in text):
+            return col_letter_to_index(cm.group(1))
+    return 2  # B
+
+
+def detect_insert_col_index(sheet_xml: str, sst_xml: str, cfg: dict) -> int:
+    """找到最右侧固定列（链接列或姓名列）之后的第一个内容列位置。"""
+    link_col = detect_link_col_in_xml(sheet_xml, sst_xml)
+    if link_col is not None:
+        return link_col + 1
+    name_col = detect_name_col_in_xml(sheet_xml, sst_xml, cfg)
+    return name_col + 1
 
 
 def shift_cell_refs_in_sheet(sheet_xml: str, min_col_index: int) -> str:
@@ -242,13 +265,16 @@ def shift_custom_xml_refs(custom_xml: str, sheet_stid: str, min_col_index: int) 
     return pattern.sub(shift_block, custom_xml)
 
 
-def find_member_rows(sheet_xml: str, sst_xml: str) -> set[int]:
+def find_member_rows(sheet_xml: str, sst_xml: str, cfg: dict) -> set[int]:
+    """扫描姓名列，返回所有包含人名（非表头、非链接）的行号。"""
+    name_col_idx = detect_name_col_in_xml(sheet_xml, sst_xml, cfg)
+    name_col_letter = index_to_col(name_col_idx)
     rows: set[int] = set()
-    for cm in re.finditer(r'<c r="B(\d+)"[^>]*>.*?</c>', sheet_xml, re.DOTALL):
+    for cm in re.finditer(rf'<c r="{name_col_letter}(\d+)"[^>]*>.*?</c>', sheet_xml, re.DOTALL):
         row = int(cm.group(1))
         if row <= 1:
             continue
-        text = read_cell_text_from_xml(sheet_xml, sst_xml, f"B{row}")
+        text = read_cell_text_from_xml(sheet_xml, sst_xml, f"{name_col_letter}{row}")
         if text and text.strip() and not text.strip().startswith("📄"):
             rows.add(row)
     return rows
@@ -270,7 +296,9 @@ def insert_week_column(
     sheet_name: str,
     week: str,
     aliases: list[str],
+    cfg: dict | None = None,
 ) -> dict:
+    cfg = cfg or {}
     same_file = input_path.resolve() == output_path.resolve()
     if not same_file:
         shutil.copy2(input_path, output_path)
@@ -297,7 +325,7 @@ def insert_week_column(
             "message": "周列已存在，跳过插入",
         }
 
-    insert_col = detect_insert_col_index(sheet_xml, sst_xml)
+    insert_col = detect_insert_col_index(sheet_xml, sst_xml, cfg)
     header_text = format_week_header(week, aliases)
     header_style = get_cell_style_id(sheet_xml, f"{index_to_col(insert_col)}1") or "3"
     # 插入后内容列样式参考原 insert_col 列（shift 前）
@@ -305,7 +333,7 @@ def insert_week_column(
     body_style = get_cell_style_id(sheet_xml, f"{body_template_col}2") or "6"
     template_width = col_width_from_sheet(sheet_xml, insert_col)
 
-    member_rows = find_member_rows(sheet_xml, sst_xml)
+    member_rows = find_member_rows(sheet_xml, sst_xml, cfg)
     sst_xml, header_idx = append_shared_string(sst_xml, header_text)
     sst_xml, empty_idx = append_shared_string(sst_xml, "")
 
@@ -394,7 +422,7 @@ def main() -> int:
         return 1
 
     out = args.output or args.input
-    result = insert_week_column(args.input, out, sheet, week, aliases)
+    result = insert_week_column(args.input, out, sheet, week, aliases, cfg)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["status"] in ("inserted", "exists") else 1
 

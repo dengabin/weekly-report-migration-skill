@@ -106,15 +106,15 @@ def get_cell_style_id(sheet_xml: str, cell_ref: str) -> str | None:
 
 
 def resolve_template_ref(sheet_xml: str, sst_xml: str, row: int, content_col: int) -> str:
-    """参考同行历史周列（C→E，+2 列）复制单元格样式；E 为占位符时退到 F。"""
-    for offset in (2, 3):
+    """参考同行历史周列复制单元格样式；跳过链接列和空列。"""
+    for offset in range(1, 5):
         ref = f"{_col_letter(content_col + offset)}{row}"
         text = read_cell_text_from_xml(sheet_xml, sst_xml, ref)
         if not text or (text.strip().startswith("📄")):
             continue
         if get_cell_style_id(sheet_xml, ref):
             return ref
-    return f"{_col_letter(content_col + 2)}{row}"
+    return f"{_col_letter(content_col + 1)}{row}"
 
 
 def copy_cell_style(sheet_xml: str, target_ref: str, template_ref: str) -> str:

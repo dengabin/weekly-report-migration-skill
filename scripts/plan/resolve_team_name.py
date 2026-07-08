@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -35,10 +36,9 @@ def is_team_name_set(cfg: dict) -> bool:
 
 
 def validate_members_flat(rows: list, member_names: list[str], cfg: dict) -> bool:
-    """子表为平铺姓名（C 列链接、D+ 为周次内容）时，不按组标题分区匹配。"""
-    opts = cfg.get("options", {})
-    name_col = col_letter_to_index(opts.get("sheet_name_column", "B"))
-    header_row = int(opts.get("sheet_header_row", 1)) - 1
+    """平铺姓名子表：不按组标题分区，只查姓名列能否找到全部成员。"""
+    name_col = detect_name_column(rows, cfg)
+    header_row = int(cfg.get("options", {}).get("sheet_header_row", 1)) - 1
     for name in member_names:
         found = False
         for i, row in enumerate(rows):
@@ -55,42 +55,63 @@ def validate_members_flat(rows: list, member_names: list[str], cfg: dict) -> boo
     return True
 
 
-def is_link_column_sheet(rows: list, cfg: dict) -> bool:
-    link_col_idx = 2  # C
-    for i in range(1, min(6, len(rows))):
+def detect_link_column(rows: list, cfg: dict) -> int | None:
+    """扫描前几行数据行，找到内容以 📄 开头的列索引（0-based）。"""
+    header_row = int(cfg.get("options", {}).get("sheet_header_row", 1)) - 1
+    for i in range(header_row + 1, min(header_row + 6, len(rows))):
         row = rows[i]
-        if len(row) <= link_col_idx:
-            continue
-        cell = str(row[link_col_idx] or "").strip()
-        if cell.startswith("📄"):
-            return True
-    return False
+        for j, cell in enumerate(row):
+            if str(cell or "").strip().startswith("📄"):
+                return j
+    return None
+
+
+def detect_name_column(rows: list, cfg: dict) -> int:
+    """从 config 或表头推断姓名列（0-based）。"""
+    opts = cfg.get("options", {})
+    if opts.get("sheet_name_column"):
+        return col_letter_to_index(opts["sheet_name_column"])
+    header_row = int(opts.get("sheet_header_row", 1)) - 1
+    if header_row < 0 or header_row >= len(rows):
+        return 1
+    header = rows[header_row]
+    for j, cell in enumerate(header):
+        text = str(cell or "").strip()
+        if "姓名" in text or "名字" in text or "name" in text.lower():
+            return j
+    return 1
 
 
 def is_flat_dept_sheet(rows: list, cfg: dict) -> bool:
-    """平铺姓名子表：ksheet 为 C 列链接；KDC 常省略链接列，表头 D 列起为周次。"""
-    if is_link_column_sheet(rows, cfg):
+    """
+    检测子表是否为「平铺姓名」布局（没有组标题行分区）。
+    判据：
+    1. 有链接列（📄），或
+    2. 表头第3列起含日期列（X月X日）且姓名列之后就是内容区域
+    """
+    if detect_link_column(rows, cfg) is not None:
         return True
     header_row = int(cfg.get("options", {}).get("sheet_header_row", 1)) - 1
     if header_row < 0 or header_row >= len(rows):
         return False
     header = rows[header_row]
-    if len(header) < 3:
-        return False
-    c0 = str(header[0] or "").strip()
-    c1 = str(header[1] or "").strip()
-    c2 = str(header[2] or "").strip()
-    if ("工号" in c0 or "姓名" in c1) and "月" in c2 and "日" in c2:
-        return True
+    name_col = detect_name_column(rows, cfg)
+    for j in range(name_col + 1, min(name_col + 3, len(header))):
+        text = str(header[j] if j < len(header) else "").strip()
+        if re.search(r"\d+月\d+日", text):
+            return True
     return False
 
 
-def apply_flat_sheet_config(cfg: dict) -> None:
+def apply_flat_sheet_config(cfg: dict, rows: list) -> None:
     opts = cfg.setdefault("options", {})
     opts["team_row_marker"] = ""
     opts["use_team_name_as_marker"] = False
-    opts["link_column"] = "C"
-    opts["dept_content_col_offset"] = 1  # 内容列在链接列右侧
+    link_col = detect_link_column(rows, cfg)
+    if link_col is not None:
+        from sheet_utils import index_to_col as _i2c
+        opts["link_column"] = _i2c(link_col)
+        opts["dept_content_col_offset"] = 1
 
 
 def validate_team_in_sheet(rows: list, member_names: list[str], cfg: dict) -> bool:
@@ -173,21 +194,6 @@ def main() -> int:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 1
 
-    if is_flat_dept_sheet(rows, cfg) and validate_members_flat(rows, member_names, cfg):
-        apply_flat_sheet_config(cfg)
-        args.config.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
-        payload = {
-            "status": "flat_sheet",
-            "team_name": (cfg.get("team_name") or "").strip(),
-            "resolved_sheet": resolved_sheet,
-            "reason": "C 列为链接、姓名为平铺布局，无需组标题行",
-            "applied": True,
-        }
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(json.dumps(payload, ensure_ascii=False, indent=2))
-        return 0
-
     if is_team_name_set(cfg) and validate_team_in_sheet(rows, member_names, cfg):
         payload = {
             "status": "already_set",
@@ -208,6 +214,26 @@ def main() -> int:
         apply_team_name_to_config(cfg, result["team_name"])
         args.config.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
         result["applied"] = True
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
+
+    if is_flat_dept_sheet(rows, cfg) and validate_members_flat(rows, member_names, cfg):
+        apply_flat_sheet_config(cfg, rows)
+        args.config.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+        link_col = detect_link_column(rows, cfg)
+        payload = {
+            "status": "flat_sheet",
+            "team_name": (cfg.get("team_name") or "").strip(),
+            "resolved_sheet": resolved_sheet,
+            "reason": "平铺布局，无组标题行分区" + (f"，链接列={link_col}" if link_col is not None else ""),
+            "applied": True,
+        }
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
