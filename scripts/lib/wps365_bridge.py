@@ -96,7 +96,21 @@ def install_wps365_read(cfg: dict | None = None) -> tuple[Path | None, str]:
 
     discovered = discover_wps365_read_glob()
     if discovered:
-        return discovered, f"已自动发现: {discovered}"
+        # 优先落到本 Skill vendor/，避免依赖其它项目里的副本
+        vendor = SKILL_ROOT / "vendor" / "wps365-read"
+        if not (vendor / "skills" / "drive" / "run.py").exists():
+            import shutil
+
+            vendor.parent.mkdir(parents=True, exist_ok=True)
+            if vendor.exists():
+                shutil.rmtree(vendor, ignore_errors=True)
+            shutil.copytree(
+                discovered,
+                vendor,
+                ignore=shutil.ignore_patterns("auth.yaml", "__pycache__", ".git"),
+            )
+            return vendor.resolve(), f"已复制到 {vendor}"
+        return vendor.resolve(), f"使用本 Skill vendor: {vendor}"
 
     repo_url = (os.environ.get("WPS365_READ_REPO_URL") or wps_cfg.get("repo_url") or "").strip()
     if repo_url:
