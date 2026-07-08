@@ -197,16 +197,34 @@ Agent 会：读小组文档 → 自动解析成员 → 检查/插入部门表周
 
 ## 工作流（必须按序执行）
 
+### ⛔ Agent 必须用 TodoWrite 跟踪进度
+
+**执行迁移时**，Agent 在开始第一步之前**必须**调用 `TodoWrite` 创建如下任务列表（第一项标记为 `in_progress`）。
+每完成一步立即将该步标记为 `completed`、下一步标记为 `in_progress`。
+遇到阻塞（如缺 wps_sid、需要用户选组名）时，当前步骤保持 `in_progress` 直到解决。
+
 ```
-任务进度：
-- [ ] -1. 自动预检（preflight.py / run_preview.py）
-- [ ] 0. 加载配置，解析文档元信息
-- [ ] 1. 读取小组周报，按成员提取内容
-- [ ] 2. 读取部门周报，解析目标位置
-- [ ] 3. 生成迁移计划（预览），用户确认
-- [ ] 4. 执行局部写入
-- [ ] 5. 校验并汇报结果
+TodoWrite 初始化内容（merge=false）：
+
+id: preflight    | 环境预检（依赖 / WPS_SID / wps365-read / 下载部门表）        | in_progress
+id: config       | 加载配置，收集缺失的文档链接                                  | pending
+id: extract      | 提取组内周报（extract_otl_weekly → extracted.json）            | pending
+id: resolve      | 解析组名与成员定位（resolve_team_name）                        | pending
+id: week_column  | 检查/插入部门表周列（ensure_week_column）                      | pending
+id: plan         | 生成迁移计划，展示预览，等用户确认                              | pending
+id: write        | 执行局部写入（patch → upload）                                 | pending
+id: verify       | 校验写入结果并汇报                                              | pending
 ```
+
+示例：预检完成后，Agent 应发出：
+```
+TodoWrite(merge=true, todos=[
+  {id: "preflight", status: "completed"},
+  {id: "config",    status: "in_progress"}
+])
+```
+
+**不要跳过 TodoWrite**。用户靠它看流程走到了哪一步。
 
 ### 步骤 -1：自动预检（执行迁移时）
 

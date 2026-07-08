@@ -19,7 +19,8 @@
 1. **每步开始前**必须先 `Read` 该步 MD 全文，再动手。
 2. 某步条件不满足（如缺 `wps_sid`）时，**在该步内完成**（引导用户、等待输入、自动续跑），不得跳过后续步骤的逻辑要求。
 3. 步骤 2 可在已有 `config.json` 时**快速过一遍**确认，不必重复问答。
-4. 技术细节延伸阅读（非逐步必读）：  
+4. **必须用 TodoWrite 跟踪进度**：见 SKILL.md「Agent 必须用 TodoWrite 跟踪进度」节，每完成一步标记 `completed`、下一步标记 `in_progress`。
+5. 技术细节延伸阅读（非逐步必读）：  
    - [../wps-sid-guide.md](../wps-sid-guide.md)  
    - [../week-resolution.md](../week-resolution.md)  
    - [../ksheet-mcp-limitation.md](../ksheet-mcp-limitation.md)  
