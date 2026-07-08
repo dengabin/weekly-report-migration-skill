@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+"""一键编排：预检 → 提取小组周报 → 生成迁移计划（预览，不写回）。"""
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+from paths import CACHE, SCRIPTS_ROOT, SKILL_ROOT  # noqa: E402
+
+WORKFLOW = SCRIPTS_ROOT / "workflow"
+EXTRACT = SCRIPTS_ROOT / "extract"
+PLAN = SCRIPTS_ROOT / "plan"
+
+
+def run(cmd: list[str]) -> int:
+    print(f"\n>>> {' '.join(cmd)}", flush=True)
+    return subprocess.call(cmd, cwd=str(SKILL_ROOT))
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="周报迁移一键预览")
+    parser.add_argument("--config", default="config.json")
+    parser.add_argument("--week", default=None, help="覆盖 otl 日期区块，如 2026-07-02")
+    args = parser.parse_args()
+
+    CACHE.mkdir(parents=True, exist_ok=True)
+
+    code = run([sys.executable, str(WORKFLOW / "preflight.py"), "--config", args.config])
+    if code == 2:
+        print("\n需要 WPS_SID：请运行 python scripts/workflow/setup_wps_sid.py <你的wps_sid>", file=sys.stderr)
+        return code
+    if code != 0:
+        report_path = CACHE / "preflight-report.json"
+        if report_path.exists():
+            print(report_path.read_text(encoding="utf-8"))
+        return code
+
+    team_md = CACHE / "team-report.md"
+    if not team_md.exists():
+        print("预检未生成 team-report.md", file=sys.stderr)
+        return 1
+
+    extract_cmd = [
+        sys.executable,
+        str(EXTRACT / "extract_otl_weekly.py"),
+        "--markdown",
+        str(team_md),
+        "--output",
+        str(CACHE / "extracted.json"),
+    ]
+    if args.week:
+        extract_cmd.extend(["--week", args.week])
+    if run(extract_cmd) != 0:
+        return 1
+
+    format_cmd = [
+        sys.executable,
+        str(EXTRACT / "format_otl_for_ksheet.py"),
+        "--input",
+        str(CACHE / "extracted.json"),
+        "--kdc-json",
+        str(CACHE / "dept-content.json"),
+        "--in-place",
+    ]
+    if run(format_cmd) != 0:
+        return 1
+
+    dept_md = CACHE / "dept-report.md"
+    if not dept_md.exists():
+        print("预检未生成 dept-report.md", file=sys.stderr)
+        return 1
+
+    plan_cmd = [
+        sys.executable,
+        str(PLAN / "plan_sheet_patches.py"),
+        "--config",
+        args.config,
+        "--dept-kdc-json",
+        str(CACHE / "dept-content.json"),
+        "--extracted",
+        str(CACHE / "extracted.json"),
+        "--output",
+        str(CACHE / "patch-plan.json"),
+    ]
+    code = run(plan_cmd)
+    if code == 0:
+        plan = json.loads((CACHE / "patch-plan.json").read_text(encoding="utf-8"))
+        print("\n=== 迁移预览摘要 ===")
+        print(f"子表: {plan.get('resolved_sheet')}")
+        for p in plan.get("patches", []):
+            status = p.get("status")
+            cell = p.get("cell", "-")
+            name = p.get("name")
+            preview = (p.get("content") or "")[:60].replace("\n", " ")
+            print(f"  {name}: {cell} [{status}] {preview}...")
+    return code
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
