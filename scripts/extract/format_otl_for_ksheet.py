@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Literal
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+from paths import SKILL_ROOT  # noqa: E402
 
 StyleKind = Literal["plain_project", "bullet_topic", "circle_topic"]
 
@@ -194,7 +195,7 @@ def load_reference_by_name(kdc_path: Path, sheet_name: str, ref_col_index: int =
         if not name or name in ("部门周报",):
             continue
         ref = row[ref_col_index] if len(row) > ref_col_index else ""
-        if ref and "版式AI应用组" not in ref:
+        if ref and not str(ref).strip().startswith("📄"):
             refs[name] = ref
     return refs
 
@@ -228,18 +229,32 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="格式化 extracted.json 供 ksheet 写入")
     parser.add_argument("--input", type=Path, default=Path(".cache/extracted.json"))
     parser.add_argument("--kdc-json", type=Path, default=Path(".cache/dept-content.json"))
-    parser.add_argument("--sheet-name", default="应用研发-AI应用组")
+    parser.add_argument("--sheet-name", default=None, help="部门子表名，默认从 config.json 读取")
     parser.add_argument("--ref-col-index", type=int, default=4, help="历史周列 0-based 索引，默认 4=E")
     parser.add_argument("--in-place", action="store_true")
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
+
+    sheet_name = args.sheet_name
+    if not sheet_name:
+        for cfg_path in (Path("config.json"), SKILL_ROOT / "config.json"):
+            if cfg_path.exists():
+                cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+                sheet_name = (cfg.get("dept_sheet") or {}).get("sheet_name")
+                if sheet_name:
+                    break
+        if not sheet_name:
+            preflight = Path(".cache/preflight-report.json")
+            if preflight.exists():
+                pr = json.loads(preflight.read_text(encoding="utf-8"))
+                sheet_name = ((pr.get("checks") or {}).get("dept_sheets") or {}).get("resolved_sheet")
 
     out = args.input if args.in_place else (args.output or args.input)
     kdc = args.kdc_json if args.kdc_json.exists() else None
     format_extracted_file(
         args.input,
         kdc_path=kdc,
-        sheet_name=args.sheet_name,
+        sheet_name=sheet_name,
         ref_col_index=args.ref_col_index,
     )
     if not args.in_place and args.output:

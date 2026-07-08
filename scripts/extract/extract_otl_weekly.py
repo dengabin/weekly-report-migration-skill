@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""从 AI应用组式 otl 周报按日期区块 + ## 姓名 提取成员内容。"""
+"""从 otl 周报按日期区块 + ## 姓名 提取成员内容。"""
 from __future__ import annotations
 
 import argparse

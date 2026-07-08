@@ -33,14 +33,9 @@ def find_dept_ksheet(cache: Path, cfg: dict | None = None) -> Path | None:
         if p.name not in exclude and not p.name.startswith("test")
     ]
     title = ((cfg or {}).get("dept_report") or {}).get("title", "")
-    titled = [p for p in candidates if title and title.replace("2026", "") in p.name]
+    titled = [p for p in candidates if title and title in p.name]
     if titled:
         candidates = titled
-    elif title:
-        for p in candidates:
-            if "产研部" in p.name:
-                candidates = [p]
-                break
 
     if not candidates:
         return None
@@ -174,7 +169,7 @@ def main() -> int:
                 "--kdc-json",
                 str(CACHE / "dept-content.json"),
                 "--sheet-name",
-                (cfg.get("dept_sheet") or {}).get("sheet_name", "应用研发-AI应用组"),
+                (cfg.get("dept_sheet") or {}).get("sheet_name") or "",
                 "--in-place",
             ]
         ) != 0:

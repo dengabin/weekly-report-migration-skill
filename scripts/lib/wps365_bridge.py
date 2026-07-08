@@ -35,7 +35,6 @@ def find_wps365_read_root(cfg: dict | None = None) -> Path | None:
 
     candidates.extend(
         [
-            SKILL_ROOT.parent / "testcase" / "ai-testcase-generate" / ".cursor" / "skills" / "wps365-read",
             Path.home() / ".cursor" / "skills" / "wps365-read",
             Path.home() / ".agents" / "skills" / "wps365-read",
         ]

@@ -110,7 +110,7 @@ def resolve_template_ref(sheet_xml: str, sst_xml: str, row: int, content_col: in
     for offset in (2, 3):
         ref = f"{_col_letter(content_col + offset)}{row}"
         text = read_cell_text_from_xml(sheet_xml, sst_xml, ref)
-        if not text or "版式AI应用组26年周报" in text:
+        if not text or (text.strip().startswith("📄")):
             continue
         if get_cell_style_id(sheet_xml, ref):
             return ref

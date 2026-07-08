@@ -48,9 +48,8 @@
 
 ```
 [三级部门周报.xlsx]
-├── Sheet: OFD业务部      ← 四级部门 A
-├── Sheet: PDF业务部      ← 四级部门 B（你们可能在这）
-├── Sheet: 引擎平台部     ← 四级部门 C
+├── Sheet: 部门A      ← 四级部门示例子表
+├── Sheet: 部门B
 └── ...
 ```
 
@@ -60,8 +59,8 @@
 
 ```json
 "dept_sheet": {
-  "fourth_dept_name": "PDF业务部",
-  "aliases": ["PDF业务"],
+  "fourth_dept_name": "你的四级部门名",
+  "aliases": ["部门别名"],
   "match": "contains",
   "fallback_scan": true
 }
@@ -71,7 +70,7 @@
 
 ```json
 "dept_sheet": {
-  "sheet_name": "PDF业务部"
+  "sheet_name": "你的子表名"
 }
 ```
 
@@ -86,9 +85,9 @@ python scripts/plan/list_dept_sheets.py --config config.json --input .cache/dept
 ```json
 {
   "sheet_count": 5,
-  "sheets": [{"name": "OFD业务部", ...}, {"name": "PDF业务部", ...}],
-  "resolved_sheet": "PDF业务部",
-  "resolve_reason": "子表名 contains 匹配: 'PDF业务部' -> 'PDF业务部'"
+  "sheets": [{"name": "部门A", ...}, {"name": "部门B", ...}],
+  "resolved_sheet": "部门B",
+  "resolve_reason": "子表名 contains 匹配: '部门B' -> '部门B'"
 }
 ```
 
@@ -170,7 +169,7 @@ python scripts/plan/list_dept_sheets.py --config config.json --input .cache/dept
 - `row_match`: A 列 `contains` 姓名
 - `col_match`: 第 1 行 `equals` 周次
 
-若姓名列写的是 `PDF内核组-张三`，则 `row_match.contains` 仍可用 `张三` 子串匹配。
+若姓名列写的是 `组名-张三`，则 `row_match.contains` 仍可用 `张三` 子串匹配。
 
 ---
 
