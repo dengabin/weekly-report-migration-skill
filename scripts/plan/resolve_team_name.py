@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 
 from sheet_utils import (  # noqa: E402
     apply_team_name_to_config,
+    col_letter_to_index,
     find_cell_in_rows,
     find_sheet_in_kdc,
     kdc_sheet_to_rows,
@@ -31,6 +32,65 @@ def load_json(path: Path) -> dict:
 def is_team_name_set(cfg: dict) -> bool:
     name = (cfg.get("team_name") or "").strip()
     return bool(name) and name not in PLACEHOLDER_TEAM_NAMES
+
+
+def validate_members_flat(rows: list, member_names: list[str], cfg: dict) -> bool:
+    """子表为平铺姓名（C 列链接、D+ 为周次内容）时，不按组标题分区匹配。"""
+    opts = cfg.get("options", {})
+    name_col = col_letter_to_index(opts.get("sheet_name_column", "B"))
+    header_row = int(opts.get("sheet_header_row", 1)) - 1
+    for name in member_names:
+        found = False
+        for i, row in enumerate(rows):
+            if i <= header_row or len(row) <= name_col:
+                continue
+            cell_name = str(row[name_col] or "").strip()
+            if not cell_name or cell_name in ("部门周报",):
+                continue
+            if name in cell_name or cell_name == name:
+                found = True
+                break
+        if not found:
+            return False
+    return True
+
+
+def is_link_column_sheet(rows: list, cfg: dict) -> bool:
+    link_col_idx = 2  # C
+    for i in range(1, min(6, len(rows))):
+        row = rows[i]
+        if len(row) <= link_col_idx:
+            continue
+        cell = str(row[link_col_idx] or "").strip()
+        if cell.startswith("📄"):
+            return True
+    return False
+
+
+def is_flat_dept_sheet(rows: list, cfg: dict) -> bool:
+    """平铺姓名子表：ksheet 为 C 列链接；KDC 常省略链接列，表头 D 列起为周次。"""
+    if is_link_column_sheet(rows, cfg):
+        return True
+    header_row = int(cfg.get("options", {}).get("sheet_header_row", 1)) - 1
+    if header_row < 0 or header_row >= len(rows):
+        return False
+    header = rows[header_row]
+    if len(header) < 3:
+        return False
+    c0 = str(header[0] or "").strip()
+    c1 = str(header[1] or "").strip()
+    c2 = str(header[2] or "").strip()
+    if ("工号" in c0 or "姓名" in c1) and "月" in c2 and "日" in c2:
+        return True
+    return False
+
+
+def apply_flat_sheet_config(cfg: dict) -> None:
+    opts = cfg.setdefault("options", {})
+    opts["team_row_marker"] = ""
+    opts["use_team_name_as_marker"] = False
+    opts["link_column"] = "C"
+    opts["dept_content_col_offset"] = 1  # 内容列在链接列右侧
 
 
 def validate_team_in_sheet(rows: list, member_names: list[str], cfg: dict) -> bool:
@@ -112,6 +172,21 @@ def main() -> int:
         args.output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 1
+
+    if is_flat_dept_sheet(rows, cfg) and validate_members_flat(rows, member_names, cfg):
+        apply_flat_sheet_config(cfg)
+        args.config.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+        payload = {
+            "status": "flat_sheet",
+            "team_name": (cfg.get("team_name") or "").strip(),
+            "resolved_sheet": resolved_sheet,
+            "reason": "C 列为链接、姓名为平铺布局，无需组标题行",
+            "applied": True,
+        }
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
 
     if is_team_name_set(cfg) and validate_team_in_sheet(rows, member_names, cfg):
         payload = {

@@ -16,6 +16,16 @@ EXTRACT = SCRIPTS_ROOT / "extract"
 PLAN = SCRIPTS_ROOT / "plan"
 
 
+def find_dept_ksheet(cache: Path) -> Path | None:
+    exclude = {"dept-report-patched.ksheet", "test-patch.ksheet", "dept-with-col.ksheet"}
+    candidates = [
+        p
+        for p in cache.glob("*.ksheet")
+        if p.name not in exclude and not p.name.startswith("test")
+    ]
+    return max(candidates, key=lambda p: p.stat().st_size) if candidates else None
+
+
 def run(cmd: list[str]) -> int:
     print(f"\n>>> {' '.join(cmd)}", flush=True)
     return subprocess.call(cmd, cwd=str(SKILL_ROOT))
@@ -99,6 +109,17 @@ def main() -> int:
     if code != 0:
         return code
 
+    ensure_col_cmd = [
+        sys.executable,
+        str(WORKFLOW / "ensure_week_column.py"),
+        "--config",
+        args.config,
+    ]
+    if args.week:
+        ensure_col_cmd.extend(["--week", args.week])
+    if run(ensure_col_cmd) != 0:
+        return 1
+
     format_cmd = [
         sys.executable,
         str(EXTRACT / "format_otl_for_ksheet.py"),
@@ -121,13 +142,16 @@ def main() -> int:
         str(PLAN / "plan_sheet_patches.py"),
         "--config",
         args.config,
-        "--dept-kdc-json",
-        str(CACHE / "dept-content.json"),
         "--extracted",
         str(CACHE / "extracted.json"),
         "--output",
         str(CACHE / "patch-plan.json"),
     ]
+    dept_ksheet = find_dept_ksheet(CACHE)
+    if dept_ksheet:
+        plan_cmd.extend(["--dept-ksheet", str(dept_ksheet)])
+    else:
+        plan_cmd.extend(["--dept-kdc-json", str(CACHE / "dept-content.json")])
     code = run(plan_cmd)
     if code == 0:
         plan = json.loads((CACHE / "patch-plan.json").read_text(encoding="utf-8"))

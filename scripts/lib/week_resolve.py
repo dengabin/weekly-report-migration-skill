@@ -85,3 +85,13 @@ def pick_latest_section_on_or_before(
     dated.sort(key=lambda x: x[0], reverse=True)
     d, label, body = dated[0]
     return label, body, d
+
+
+def build_week_aliases(week_iso: str) -> list[str]:
+    """由 week (YYYY-MM-DD) 生成部门表头匹配别名。"""
+    d = datetime.strptime(week_iso[:10], "%Y-%m-%d").date()
+    period_start = d - timedelta(days=6)
+    period = f"{period_start.month}.{period_start.day}-{d.month}.{d.day}"
+    md = f"{d.month}月{d.day}日"
+    short = f"{d.month}.{d.day}"
+    return [short, md, period, f"周期：{period}"]

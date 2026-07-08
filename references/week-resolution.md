@@ -84,7 +84,9 @@ python scripts/workflow/run_preview.py --relative-week 1
    `7月2日` + 换行 + `周期：6.26-7.2`（周期从 otl 区块或组内习惯推断）
 3. D 列同步复制「📄组内周报」占位结构（若该组行有文件链接列）
 4. **仅**新增列相关 XML/结构；**不得**修改其它列单元格内容
-5. 插入完成后重新 `preflight` / `plan_sheet_patches`，再 patch
+5. 插入完成后 `preflight --skip-download`，`plan_sheet_patches --dept-ksheet` 从本地补丁文件定位单元格，再 patch
+
+实现：`scripts/patch/insert_week_column.py`（由 `scripts/workflow/ensure_week_column.py` 编排）。
 
 **若列已存在但为空**：视为覆盖写入，同 §4.1。
 
@@ -99,7 +101,7 @@ python scripts/workflow/run_preview.py --relative-week 1
 }
 ```
 
-Agent 在解析用户口语后应**自动更新** `week` 与必要时补充 `week_aliases`，无需用户手改 JSON。
+Agent 在解析用户口语后应**自动更新** `week` 与 `week_aliases`（`build_config_from_extracted.py` 调用 `build_week_aliases`），无需用户手改 JSON。
 
 ---
 

@@ -9,6 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 from paths import SKILL_ROOT  # noqa: E402
+from week_resolve import build_week_aliases  # noqa: E402
 
 
 def load_json(path: Path) -> dict:
@@ -67,6 +68,7 @@ def main() -> int:
         return 1
 
     cfg["week"] = week
+    cfg["week_aliases"] = build_week_aliases(week)
     opts = cfg.setdefault("options", {})
     name_col = opts.get("sheet_name_column", "B")
     cfg["members"] = members_from_extracted(ext, week, name_col)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from sheet_utils import (
     resolve_dept_sheet,
     worksheet_to_rows,
 )
+from ksheet_rows import ksheet_sheet_to_rows  # noqa: E402
 
 
 def load_json(path: Path) -> dict:
@@ -94,25 +96,7 @@ def plan_from_xlsx(cfg: dict, extracted: dict, xlsx_path: Path) -> dict:
     }
 
 
-def plan_from_kdc_json(cfg: dict, extracted: dict, kdc_path: Path) -> dict:
-    data = json.loads(kdc_path.read_text(encoding="utf-8"))
-    raw = data.get("raw") or data
-    sheet_names = [s.get("name", "") for s in (raw.get("doc") or raw).get("sheets", [])]
-    resolved, reason = resolve_dept_sheet([n for n in sheet_names if n], cfg)
-    if not resolved:
-        return {"week": cfg.get("week"), "resolved_sheet": None, "resolve_reason": reason, "patches": []}
-
-    sheet = find_sheet_in_kdc(raw, resolved)
-    if not sheet:
-        return {
-            "week": cfg.get("week"),
-            "resolved_sheet": resolved,
-            "resolve_reason": reason,
-            "patches": [],
-            "error": f"KDC 中未找到子表: {resolved}",
-        }
-
-    rows = kdc_sheet_to_rows(sheet)
+def plan_from_rows(cfg: dict, extracted: dict, rows: list, resolved: str, reason: str, source: str) -> dict:
     by_name = {m["name"]: m["content"] for m in extracted.get("members", [])}
     plan = []
 
@@ -143,8 +127,44 @@ def plan_from_kdc_json(cfg: dict, extracted: dict, kdc_path: Path) -> dict:
         "resolved_sheet": resolved,
         "resolve_reason": reason,
         "patches": plan,
-        "source": "kdc_json",
+        "source": source,
     }
+
+
+def plan_from_ksheet(cfg: dict, extracted: dict, ksheet_path: Path) -> dict:
+    from zipfile import ZipFile
+
+    with ZipFile(ksheet_path) as zin:
+        wb_xml = zin.read("xl/workbook.xml").decode("utf-8")
+    sheet_names = re.findall(r'name="([^"]+)"', wb_xml)
+    resolved, reason = resolve_dept_sheet(sheet_names, cfg)
+    if not resolved:
+        return {"week": cfg.get("week"), "resolved_sheet": None, "resolve_reason": reason, "patches": []}
+
+    rows = ksheet_sheet_to_rows(ksheet_path, resolved)
+    return plan_from_rows(cfg, extracted, rows, resolved, reason, "ksheet_zip")
+
+
+def plan_from_kdc_json(cfg: dict, extracted: dict, kdc_path: Path) -> dict:
+    data = json.loads(kdc_path.read_text(encoding="utf-8"))
+    raw = data.get("raw") or data
+    sheet_names = [s.get("name", "") for s in (raw.get("doc") or raw).get("sheets", [])]
+    resolved, reason = resolve_dept_sheet([n for n in sheet_names if n], cfg)
+    if not resolved:
+        return {"week": cfg.get("week"), "resolved_sheet": None, "resolve_reason": reason, "patches": []}
+
+    sheet = find_sheet_in_kdc(raw, resolved)
+    if not sheet:
+        return {
+            "week": cfg.get("week"),
+            "resolved_sheet": resolved,
+            "resolve_reason": reason,
+            "patches": [],
+            "error": f"KDC 中未找到子表: {resolved}",
+        }
+
+    rows = kdc_sheet_to_rows(sheet)
+    return plan_from_rows(cfg, extracted, rows, resolved, reason, "kdc_json")
 
 
 def plan_from_markdown(cfg: dict, extracted: dict, md_path: Path, table_index: int) -> dict:
@@ -161,32 +181,7 @@ def plan_from_markdown(cfg: dict, extracted: dict, md_path: Path, table_index: i
             raise SystemExit("部门 Markdown 中未解析到表格")
         table = tables[table_index]
 
-    by_name = {m["name"]: m["content"] for m in extracted.get("members", [])}
-    plan = []
-
-    for member in cfg.get("members", []):
-        target = dict(member.get("target", {}))
-        if target.get("type") != "sheet_cell":
-            continue
-        target["sheet"] = resolved
-        pos = find_cell_in_rows(table, member, target, cfg)
-        entry = {
-            "name": member["name"],
-            "content": by_name.get(member["name"], ""),
-            "sheet": resolved,
-            "target": target,
-        }
-        if pos:
-            row_idx, col_idx = pos
-            entry["row"] = row_idx + 1
-            entry["col"] = col_idx + 1
-            entry["cell"] = f"{index_to_col(col_idx)}{row_idx + 1}"
-            entry["status"] = "ready"
-        else:
-            entry["status"] = "not_found"
-        plan.append(entry)
-
-    return {"week": cfg.get("week"), "resolved_sheet": resolved, "resolve_reason": reason, "patches": plan}
+    return plan_from_rows(cfg, extracted, table, resolved, reason, "markdown")
 
 
 def main() -> int:
@@ -195,6 +190,7 @@ def main() -> int:
     parser.add_argument("--extracted", type=Path, required=True)
     parser.add_argument("--input-xlsx", type=Path, help="部门周报 xlsx（推荐，支持多子表）")
     parser.add_argument("--dept-kdc-json", type=Path, help="部门周报 KDC JSON（推荐，ksheet 多行单元格）")
+    parser.add_argument("--dept-ksheet", type=Path, help="本地部门 .ksheet（插入周列后优先用于定位单元格）")
     parser.add_argument("--dept-markdown", type=Path, help="部门周报 Markdown（备选）")
     parser.add_argument("--output", type=Path, default=Path(".cache/patch-plan.json"))
     parser.add_argument("--table-index", type=int, default=0)
@@ -205,12 +201,14 @@ def main() -> int:
 
     if args.input_xlsx:
         payload = plan_from_xlsx(cfg, extracted, args.input_xlsx)
+    elif args.dept_ksheet:
+        payload = plan_from_ksheet(cfg, extracted, args.dept_ksheet)
     elif args.dept_kdc_json:
         payload = plan_from_kdc_json(cfg, extracted, args.dept_kdc_json)
     elif args.dept_markdown:
         payload = plan_from_markdown(cfg, extracted, args.dept_markdown, args.table_index)
     else:
-        print("请指定 --input-xlsx、--dept-kdc-json 或 --dept-markdown", file=sys.stderr)
+        print("请指定 --input-xlsx、--dept-ksheet、--dept-kdc-json 或 --dept-markdown", file=sys.stderr)
         return 2
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
