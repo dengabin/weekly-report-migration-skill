@@ -10,7 +10,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 from paths import CACHE, SCRIPTS_ROOT, SKILL_ROOT, find_dept_ksheet, setup_sys_path  # noqa: E402
+from subprocess_utils import configure_stdio, run_skill_cmd  # noqa: E402
 
+configure_stdio()
 setup_sys_path("patch")
 from wps365_bridge import find_wps365_read_root, resolve_wps_sid, run_drive  # noqa: E402
 
@@ -36,7 +38,7 @@ def restore_raw_content(extracted_path: Path) -> None:
 
 def run_step(cmd: list[str]) -> int:
     print(f">>> {' '.join(cmd)}", flush=True)
-    return subprocess.call(cmd, cwd=str(SKILL_ROOT))
+    return run_skill_cmd(cmd, cwd=SKILL_ROOT)
 
 
 def verify_patched_cells(patched: Path, plan: dict, extracted: dict) -> list[dict]:
@@ -222,7 +224,7 @@ def main() -> int:
         str(output),
     ]
     print(f">>> {' '.join(patch_cmd)}", flush=True)
-    if subprocess.call(patch_cmd, cwd=str(SKILL_ROOT)) != 0:
+    if run_skill_cmd(patch_cmd, cwd=SKILL_ROOT) != 0:
         return 2
 
     verify_errors = verify_patched_cells(output, plan, extracted)
@@ -294,7 +296,7 @@ def main() -> int:
 
     cleanup_cmd = [sys.executable, str(WORKFLOW / "cleanup_cache.py")]
     print(f">>> {' '.join(cleanup_cmd)}", flush=True)
-    cleanup_rc = subprocess.call(cleanup_cmd, cwd=str(SKILL_ROOT))
+    cleanup_rc = run_skill_cmd(cleanup_cmd, cwd=SKILL_ROOT)
     if cleanup_rc != 0:
         print("警告：缓存清理未完全成功，可手动检查 .cache/", file=sys.stderr)
         return 6

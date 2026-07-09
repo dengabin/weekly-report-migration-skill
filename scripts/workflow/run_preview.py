@@ -10,6 +10,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 from paths import CACHE, SCRIPTS_ROOT, SKILL_ROOT, find_dept_ksheet  # noqa: E402
+from subprocess_utils import configure_stdio, run_skill_cmd  # noqa: E402
+
+configure_stdio()
 
 WORKFLOW = SCRIPTS_ROOT / "workflow"
 EXTRACT = SCRIPTS_ROOT / "extract"
@@ -18,7 +21,7 @@ PLAN = SCRIPTS_ROOT / "plan"
 
 def run(cmd: list[str]) -> int:
     print(f"\n>>> {' '.join(cmd)}", flush=True)
-    return subprocess.call(cmd, cwd=str(SKILL_ROOT))
+    return run_skill_cmd(cmd, cwd=SKILL_ROOT)
 
 
 def main() -> int:

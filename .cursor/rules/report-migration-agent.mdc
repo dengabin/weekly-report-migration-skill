@@ -15,12 +15,14 @@ alwaysApply: false
 
 ## 执行迁移时
 
-1. 先读 `references/workflow/INDEX.md`
+1. **先** `TodoWrite` 创建 8 项任务（见 `SKILL.md`），再读 `references/workflow/INDEX.md`
 2. **按序**阅读并执行 `references/workflow/01-…md` 至 `08-…md`
 3. 用户指南见根目录 `README.md`
 
 ## 硬性规定
 
+- **必须 TodoWrite** 跟踪 01→08；禁止跳过或清空
+- **禁止**在用户环境新建/运行临时 `.py`（如 `_inspect_*.py`）；只能用 `scripts/**` 已有入口；脚本失败只汇报 + 按 workflow 续跑，禁止现场改 bug
 - 禁止让用户跑 python/pip；禁止索要成员名单；未指定周次时不询问
 - 部门表多组：姓名能唯一对应则不问组名；无法确定时必须问，禁止猜组（见 `references/team-name-resolution.md`）
 - **安装阶段禁止** preflight、禁止 AskQuestion 要文档链接

@@ -19,8 +19,9 @@
 1. **每步开始前**必须先 `Read` 该步 MD 全文，再动手。
 2. 某步条件不满足（如缺 `wps_sid`、缺链接、缺组名、待写回确认）时，**在该步内完成**：**必须 AskQuestion** → 用户回复 → **同一会话自动续跑**；不得跳过后续步骤的逻辑要求，不得以「当前阻塞」结束回合（详见 [01-原则与用户边界.md](01-原则与用户边界.md) §1.3）。
 3. 步骤 2 可在已有 `config.json` 时**快速过一遍**确认，不必重复问答。
-4. **必须用 TodoWrite 跟踪进度**：见 SKILL.md「Agent 必须用 TodoWrite 跟踪进度」节，每完成一步标记 `completed`、下一步标记 `in_progress`。
-5. 技术细节延伸阅读（非逐步必读）：  
+4. **必须用 TodoWrite 跟踪进度**（**硬性，不可与 AskQuestion 等其它约束互相替代**）：见 SKILL.md「Agent 必须用 TodoWrite 跟踪进度」节；迁移开始前先建 8 项，每步更新状态。
+5. **只能用 Skill 已有脚本**：禁止在用户目录新建 `_inspect_*.py` 等临时文件排查；失败时读 `.cache/*-report.json` 并按 workflow 处理。见 [01-原则与用户边界.md](01-原则与用户边界.md) §1.4。
+6. 技术细节延伸阅读（非逐步必读）：  
    - [../wps-sid-guide.md](../wps-sid-guide.md)  
    - [../week-resolution.md](../week-resolution.md)  
    - [../ksheet-mcp-limitation.md](../ksheet-mcp-limitation.md)  

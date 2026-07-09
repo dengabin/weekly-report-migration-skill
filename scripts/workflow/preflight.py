@@ -17,6 +17,7 @@ from wps365_bridge import (  # noqa: E402
     run_drive,
 )
 from paths import SKILL_ROOT  # noqa: E402
+from subprocess_utils import configure_stdio  # noqa: E402
 
 NEED_SID = 2
 FAIL = 1
@@ -62,6 +63,7 @@ def resolve_sheet_name(sheet_names: list[str], cfg: dict) -> tuple[str | None, s
 
 
 def main() -> int:
+    configure_stdio()
     parser = argparse.ArgumentParser(description="周报迁移 Skill 预检")
     parser.add_argument("--config", type=Path, default=SKILL_ROOT / "config.json")
     parser.add_argument("--output", type=Path, default=SKILL_ROOT / ".cache" / "preflight-report.json")

@@ -13,8 +13,23 @@ from xml.sax.saxutils import escape
 
 SST_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 SI_RE = re.compile(r"<si>.*?</si>", re.DOTALL)
-CELL_RE_TEMPLATE = r'(<c r="{ref}"[^>]*>)(.*?)(</c>)'
 HYPERSUBLINK_MARKER = "hypersublink"
+
+
+def _cell_attr_re(cell_ref: str) -> str:
+    return rf'<c\b(?=[^>]*\br="{re.escape(cell_ref)}")'
+
+
+def _cell_open_re(cell_ref: str) -> str:
+    return _cell_attr_re(cell_ref) + r"([^>]*)>"
+
+
+def _cell_self_close_re(cell_ref: str) -> str:
+    return _cell_attr_re(cell_ref) + r"([^>]*)/>"
+
+
+def _cell_full_re(cell_ref: str) -> str:
+    return rf"({_cell_attr_re(cell_ref)}[^>]*>)(.*?)(</c>)"
 
 
 def load_json(path: Path) -> dict:
@@ -83,7 +98,9 @@ def append_shared_string(sst_xml: str, text: str) -> tuple[str, int]:
 
 
 def read_cell_text_from_xml(sheet_xml: str, sst_xml: str, cell_ref: str) -> str | None:
-    m = re.search(CELL_RE_TEMPLATE.format(ref=re.escape(cell_ref)), sheet_xml, re.DOTALL)
+    if re.search(_cell_self_close_re(cell_ref), sheet_xml):
+        return ""
+    m = re.search(_cell_full_re(cell_ref), sheet_xml, re.DOTALL)
     if not m:
         return None
     body = m.group(2)
@@ -98,7 +115,9 @@ def read_cell_text_from_xml(sheet_xml: str, sst_xml: str, cell_ref: str) -> str 
 
 
 def get_cell_style_id(sheet_xml: str, cell_ref: str) -> str | None:
-    m = re.search(rf'<c r="{re.escape(cell_ref)}"([^>]*)>', sheet_xml)
+    m = re.search(_cell_open_re(cell_ref), sheet_xml)
+    if not m:
+        m = re.search(_cell_self_close_re(cell_ref), sheet_xml)
     if not m:
         return None
     sm = re.search(r'\ss="(\d+)"', m.group(1))
@@ -122,31 +141,48 @@ def copy_cell_style(sheet_xml: str, target_ref: str, template_ref: str) -> str:
     if not style_id:
         return sheet_xml
 
-    pattern = re.compile(rf'(<c r="{re.escape(target_ref)}")([^>]*)(>)', re.DOTALL)
+    pattern = re.compile(
+        rf"({_cell_attr_re(target_ref)})([^>]*)(>)",
+        re.DOTALL,
+    )
 
     def repl(m: re.Match[str]) -> str:
-        attrs = m.group(2)
+        prefix, attrs, close = m.group(1), m.group(2), m.group(3)
         if re.search(r'\ss="', attrs):
             attrs = re.sub(r'\ss="\d+"', f' s="{style_id}"', attrs)
         else:
             attrs = f' s="{style_id}"' + attrs
-        return m.group(1) + attrs + m.group(3)
+        return prefix + attrs + close
 
     new_xml, n = pattern.subn(repl, sheet_xml, count=1)
     return new_xml if n else sheet_xml
 
 
+def _ensure_t_s_attr(open_tag: str) -> str:
+    if 't="inlineStr"' in open_tag:
+        open_tag = re.sub(r'\s*t="inlineStr"', ' t="s"', open_tag)
+    if 't="s"' not in open_tag:
+        open_tag = open_tag.replace("<c ", '<c t="s" ')
+    return open_tag
+
+
 def patch_sheet_cell(sheet_xml: str, cell_ref: str, string_index: int) -> str:
-    pattern = re.compile(CELL_RE_TEMPLATE.format(ref=re.escape(cell_ref)), re.DOTALL)
+    sc_pattern = re.compile(_cell_self_close_re(cell_ref))
+
+    def sc_repl(m: re.Match[str]) -> str:
+        attrs = m.group(1)
+        open_tag = _ensure_t_s_attr(f'<c r="{cell_ref}"{attrs}>')
+        return f"{open_tag}<v>{string_index}</v></c>"
+
+    new_xml, n = sc_pattern.subn(sc_repl, sheet_xml, count=1)
+    if n:
+        return new_xml
+
+    pattern = re.compile(_cell_full_re(cell_ref), re.DOTALL)
 
     def repl(m: re.Match[str]) -> str:
         open_tag, body, close_tag = m.group(1), m.group(2), m.group(3)
-        if 't="inlineStr"' in open_tag:
-            open_tag = re.sub(r'\s*t="inlineStr"', ' t="s"', open_tag)
-            if 't="s"' not in open_tag:
-                open_tag = open_tag.replace("<c ", '<c t="s" ')
-        elif 't="s"' not in open_tag:
-            open_tag = open_tag.replace("<c ", '<c t="s" ')
+        open_tag = _ensure_t_s_attr(open_tag)
         body = re.sub(r"<v>\d+</v>", f"<v>{string_index}</v>", body)
         if "<v>" not in body:
             body = f"<v>{string_index}</v>"
@@ -195,18 +231,7 @@ def read_cell_text(ksheet_path: Path, sheet_path: str, cell_ref: str) -> str | N
     with zipfile.ZipFile(ksheet_path) as z:
         sheet = z.read(sheet_path).decode("utf-8")
         sst = z.read("xl/sharedStrings.xml").decode("utf-8")
-    m = re.search(CELL_RE_TEMPLATE.format(ref=re.escape(cell_ref)), sheet, re.DOTALL)
-    if not m:
-        return None
-    body = m.group(2)
-    vm = re.search(r"<v>(\d+)</v>", body)
-    if not vm:
-        return None
-    blocks = parse_si_blocks(sst)
-    idx = int(vm.group(1))
-    if idx >= len(blocks):
-        return None
-    return text_from_si(blocks[idx])
+    return read_cell_text_from_xml(sheet, sst, cell_ref)
 
 
 def apply_patches_zip(

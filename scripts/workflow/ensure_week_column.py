@@ -10,6 +10,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 from paths import CACHE, SCRIPTS_ROOT, SKILL_ROOT, find_dept_ksheet  # noqa: E402
+from subprocess_utils import configure_stdio, run_skill_cmd, skill_subprocess_env  # noqa: E402
+
+configure_stdio()
 
 PATCH = SCRIPTS_ROOT / "patch"
 WORKFLOW = SCRIPTS_ROOT / "workflow"
@@ -59,7 +62,10 @@ def main() -> int:
         week,
     ]
     print(f">>> {' '.join(cmd)}", flush=True)
-    proc = subprocess.run(cmd, cwd=str(SKILL_ROOT), capture_output=True, text=True, encoding="utf-8")
+    proc = subprocess.run(
+        cmd, cwd=str(SKILL_ROOT), capture_output=True, text=True,
+        encoding="utf-8", errors="replace", env=skill_subprocess_env(),
+    )
     if proc.stdout:
         print(proc.stdout, end="" if proc.stdout.endswith("\n") else "\n", flush=True)
     if proc.stderr:
@@ -86,7 +92,7 @@ def main() -> int:
 
     pf = [sys.executable, str(WORKFLOW / "preflight.py"), "--config", args.config, "--skip-download"]
     print(f">>> {' '.join(pf)}", flush=True)
-    return subprocess.call(pf, cwd=str(SKILL_ROOT))
+    return run_skill_cmd(pf, cwd=SKILL_ROOT)
 
 
 if __name__ == "__main__":

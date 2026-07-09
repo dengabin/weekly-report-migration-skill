@@ -45,6 +45,8 @@ python scripts/workflow/run_preview.py
 
 **硬性规定**（详见 workflow）：
 
+- ⛔ **必须 TodoWrite**：迁移开始前创建 8 项任务，全程更新；与 AskQuestion、分两次问链接等约束**并列**，不得因加强一项而省略另一项
+- ⛔ **禁止自编脚本**：不得在用户环境新建 `_inspect_*.py` 等临时 Python；只能 Shell 调用 `scripts/**` 与 `run_preview.py` / `apply_migration.py`；失败则读报告 JSON 汇报，**禁止现场改 bug**
 - ❌ **禁止**让用户自己运行 `python scripts/...`、pip、或任何终端命令
 - ❌ **禁止**让用户手动配置环境、下载/上传云文档、编辑 config
 - ❌ **禁止**向用户索要组成员名单（必须从组内 otl 自动解析 `## 姓名`）
