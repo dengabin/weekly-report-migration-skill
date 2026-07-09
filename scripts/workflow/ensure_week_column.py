@@ -61,6 +61,9 @@ def main() -> int:
         "--week",
         week,
     ]
+    extracted = CACHE / "extracted.json"
+    if extracted.exists():
+        cmd.extend(["--extracted", str(extracted)])
     print(f">>> {' '.join(cmd)}", flush=True)
     proc = subprocess.run(
         cmd, cwd=str(SKILL_ROOT), capture_output=True, text=True,

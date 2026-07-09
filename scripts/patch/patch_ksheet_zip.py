@@ -8,8 +8,11 @@ import re
 import shutil
 import sys
 import zipfile
+from collections import defaultdict
 from pathlib import Path
 from xml.sax.saxutils import escape
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 
 SST_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 SI_RE = re.compile(r"<si>.*?</si>", re.DOTALL)
@@ -245,6 +248,7 @@ def apply_patches_zip(
     by_name = {m["name"]: m.get("content", "") for m in extracted.get("members", [])}
     applied: list[dict] = []
     skipped: list[dict] = []
+    col_contents: dict[str, dict[int, list[str]]] = defaultdict(lambda: defaultdict(list))
 
     shutil.copy2(input_path, output_path)
 
@@ -297,6 +301,7 @@ def apply_patches_zip(
         sheet_xml = patch_sheet_cell(sheet_xml, cell_ref, new_idx)
         sheet_xml = copy_cell_style(sheet_xml, cell_ref, template_ref)
         sheet_xmls[sheet_path] = sheet_xml
+        col_contents[sheet_path][col].append(source)
         applied.append(
             {
                 "name": name,
@@ -312,6 +317,18 @@ def apply_patches_zip(
 
     if skipped:
         return applied, skipped
+
+    if col_contents:
+        from column_width import excel_col_width_from_texts, upsert_col_width_in_sheet_xml
+
+        for sheet_path, xml in list(sheet_xmls.items()):
+            per_sheet = col_contents.get(sheet_path)
+            if not per_sheet:
+                continue
+            for col_idx, texts in per_sheet.items():
+                needed = excel_col_width_from_texts(texts)
+                xml = upsert_col_width_in_sheet_xml(xml, col_idx, needed)
+            sheet_xmls[sheet_path] = xml
 
     # 写回 zip：仅替换 sharedStrings 与目标 sheet
     tmp = output_path.with_suffix(".ksheet.tmp")

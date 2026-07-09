@@ -315,13 +315,57 @@ def find_member_rows(sheet_xml: str, sst_xml: str, cfg: dict) -> set[int]:
 
 
 def col_width_from_sheet(sheet_xml: str, col_index: int) -> str:
-    m = re.search(
-        rf'<col min="{col_index}" max="{col_index}"[^>]*width="([^"]+)"',
-        sheet_xml,
+    from column_width import col_width_at, DEFAULT_COL_WIDTH
+
+    w = col_width_at(sheet_xml, col_index)
+    if w is not None:
+        return f"{w:.3f}"
+    return f"{DEFAULT_COL_WIDTH:.3f}"
+
+
+def list_week_content_col_indices(sheet_xml: str, sst_xml: str, cfg: dict) -> list[int]:
+    """表头含「月日」的周内容列（1-based）。"""
+    name_col = detect_name_col_in_xml(sheet_xml, sst_xml, cfg)
+    date_re = re.compile(r"(\d+)月(\d+)日")
+    indices: list[int] = []
+    for cm in re.finditer(r'<c r="([A-Z]+)1"[^>]*>.*?</c>', sheet_xml, re.DOTALL):
+        col_letter = cm.group(1)
+        col_idx = col_letter_to_index(col_letter)
+        if col_idx <= name_col:
+            continue
+        text = read_cell_text_from_xml(sheet_xml, sst_xml, f"{col_letter}1")
+        if text and date_re.search(text):
+            indices.append(col_idx)
+    return indices
+
+
+def choose_insert_column_width(
+    sheet_xml: str,
+    sst_xml: str,
+    cfg: dict,
+    content_texts: list[str] | None = None,
+) -> str:
+    """新周列宽度：优先按迁移内容，其次参考已有周列，不用窄的链接列。"""
+    from column_width import (
+        MIN_COL_WIDTH,
+        MAX_COL_WIDTH,
+        DEFAULT_COL_WIDTH,
+        col_width_at,
+        excel_col_width_from_texts,
     )
-    if m:
-        return m.group(1)
-    return "49.375"
+
+    candidates: list[float] = []
+    for ci in list_week_content_col_indices(sheet_xml, sst_xml, cfg):
+        w = col_width_at(sheet_xml, ci)
+        if w is not None and w >= MIN_COL_WIDTH:
+            candidates.append(min(w, MAX_COL_WIDTH))
+
+    if content_texts:
+        candidates.append(excel_col_width_from_texts(content_texts))
+
+    if not candidates:
+        return f"{DEFAULT_COL_WIDTH:.3f}"
+    return f"{min(max(candidates), MAX_COL_WIDTH):.3f}"
 
 
 def insert_week_column(
@@ -331,6 +375,7 @@ def insert_week_column(
     week: str,
     aliases: list[str],
     cfg: dict | None = None,
+    content_texts: list[str] | None = None,
 ) -> dict:
     cfg = cfg or {}
     same_file = input_path.resolve() == output_path.resolve()
@@ -365,7 +410,7 @@ def insert_week_column(
     # 插入后内容列样式参考原 insert_col 列（shift 前）
     body_template_col = index_to_col(insert_col)
     body_style = get_cell_style_id(sheet_xml, f"{body_template_col}2") or "6"
-    template_width = col_width_from_sheet(sheet_xml, insert_col)
+    template_width = choose_insert_column_width(sheet_xml, sst_xml, cfg, content_texts)
 
     member_rows = find_member_rows(sheet_xml, sst_xml, cfg)
     sst_xml, header_idx = append_shared_string(sst_xml, header_text)
@@ -421,6 +466,7 @@ def insert_week_column(
         "week": week,
         "insert_col": index_to_col(insert_col),
         "header": header_text,
+        "col_width": template_width,
         "member_rows": len(member_rows),
         "hypersublink_count": link_after,
     }
@@ -433,6 +479,12 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--sheet", default=None, help="子表名，默认从 preflight 或 config 解析")
     parser.add_argument("--week", default=None)
+    parser.add_argument(
+        "--extracted",
+        type=Path,
+        default=None,
+        help="extracted.json；用于按迁移内容估算新列宽度",
+    )
     args = parser.parse_args()
 
     cfg = json.loads(args.config.read_text(encoding="utf-8"))
@@ -456,7 +508,12 @@ def main() -> int:
         return 1
 
     out = args.output or args.input
-    result = insert_week_column(args.input, out, sheet, week, aliases, cfg)
+    content_texts = None
+    if args.extracted and args.extracted.exists():
+        ext = json.loads(args.extracted.read_text(encoding="utf-8"))
+        content_texts = [m.get("content", "") for m in ext.get("members", [])]
+
+    result = insert_week_column(args.input, out, sheet, week, aliases, cfg, content_texts)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["status"] in ("inserted", "exists") else 1
 
