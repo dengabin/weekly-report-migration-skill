@@ -1,6 +1,6 @@
 # 获取 wps_sid（Agent 引导用户用）
 
-当预检 `status` 为 `need_wps_sid` 或读部门 ksheet 失败（凭证过期）时，Agent **在对话中**向用户展示以下流程，并**等待用户下一条消息粘贴**，不得让用户自己去跑脚本。
+当预检 `status` 为 `need_wps_sid` 或读部门 ksheet 失败（凭证过期）时，Agent **必须调用 AskQuestion** 索要凭证，并在用户回复后**同一会话内自动续跑**。不得仅用正文说「请粘贴」后结束回合。
 
 ---
 
