@@ -21,7 +21,8 @@
 3. 步骤 2 可在已有 `config.json` 时**快速过一遍**确认，不必重复问答。
 4. **必须用 TodoWrite 跟踪进度**（**硬性，不可与 AskQuestion 等其它约束互相替代**）：见 SKILL.md「Agent 必须用 TodoWrite 跟踪进度」节；迁移开始前先建 8 项，每步更新状态。
 5. **只能用 Skill 已有脚本**：禁止在用户目录新建 `_inspect_*.py` 等临时文件排查；失败时读 `.cache/*-report.json` 并按 workflow 处理。见 [01-原则与用户边界.md](01-原则与用户边界.md) §1.4。
-6. 技术细节延伸阅读（非逐步必读）：  
+6. **防误写（定位确定性）**：子表 tab / 页内组名**仅百分百确定**时可不问用户；任一多候选或 `ambiguous` → **必须 AskQuestion**，禁止模糊猜选。见 [team-name-resolution.md](../team-name-resolution.md) §1.1。
+7. 技术细节延伸阅读（非逐步必读）：  
    - [../wps-sid-guide.md](../wps-sid-guide.md)  
    - [../week-resolution.md](../week-resolution.md)  
    - [../ksheet-mcp-limitation.md](../ksheet-mcp-limitation.md)  

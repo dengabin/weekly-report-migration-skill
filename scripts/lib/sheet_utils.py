@@ -45,7 +45,10 @@ def sheet_name_matches(name: str, pattern: str, mode: str = "contains") -> bool:
 
 
 def resolve_dept_sheet(sheet_names: list[str], cfg: dict) -> tuple[str | None, str]:
-    """根据 config.dept_sheet 在 workbook 子表列表中定位目标 sheet。"""
+    """根据 config.dept_sheet 在 workbook 子表列表中定位目标 sheet。
+
+    仅当**唯一**命中时自动返回；多个候选时返回 None，由 Agent AskQuestion 让用户指定，禁止猜第一个。
+    """
     dept_sheet = cfg.get("dept_sheet") or {}
     if dept_sheet.get("sheet_name"):
         exact = dept_sheet["sheet_name"]
@@ -63,16 +66,24 @@ def resolve_dept_sheet(sheet_names: list[str], cfg: dict) -> tuple[str | None, s
         candidates.append(cfg["team_name"])
 
     mode = dept_sheet.get("match", "contains")
+    matched: set[str] = set()
     for pat in candidates:
         for sn in sheet_names:
             if sheet_name_matches(sn, pat, mode):
-                return sn, f"子表名 {mode} 匹配: {pat!r} -> {sn!r}"
+                matched.add(sn)
 
     if dept_sheet.get("fallback_scan", True):
         team = cfg.get("team_name", "")
-        for sn in sheet_names:
-            if team and team in sn:
-                return sn, f"fallback: 子表名含 team_name {team!r}"
+        if team:
+            for sn in sheet_names:
+                if team in sn:
+                    matched.add(sn)
+
+    if len(matched) == 1:
+        sn = next(iter(matched))
+        return sn, f"子表唯一匹配: {sn!r}"
+    if len(matched) > 1:
+        return None, f"多个子表匹配，须用户指定 sheet_name: {sorted(matched)}"
 
     return None, f"未匹配到子表，候选: {candidates}，现有: {sheet_names}"
 
