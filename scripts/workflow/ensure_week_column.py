@@ -9,20 +9,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
-from paths import CACHE, SCRIPTS_ROOT, SKILL_ROOT  # noqa: E402
+from paths import CACHE, SCRIPTS_ROOT, SKILL_ROOT, find_dept_ksheet  # noqa: E402
 
 PATCH = SCRIPTS_ROOT / "patch"
 WORKFLOW = SCRIPTS_ROOT / "workflow"
-
-
-def find_dept_ksheet(cache: Path) -> Path | None:
-    exclude = {"dept-report-patched.ksheet", "test-patch.ksheet"}
-    candidates = [
-        p
-        for p in cache.glob("*.ksheet")
-        if p.name not in exclude and not p.name.startswith("test")
-    ]
-    return max(candidates, key=lambda p: p.stat().st_size) if candidates else None
 
 
 def main() -> int:

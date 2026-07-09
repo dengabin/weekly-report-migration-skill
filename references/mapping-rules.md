@@ -103,7 +103,7 @@ python scripts/plan/list_dept_sheets.py --config config.json --input .cache/dept
 {
   "type": "sheet_cell",
   "sheet": "周报",
-  "row_match": { "column": "A", "contains": "张三" },
+  "row_match": { "column": "B", "contains": "张三" },
   "col_match": { "row": 1, "equals": "2026-W27" }
 }
 ```
@@ -111,7 +111,7 @@ python scripts/plan/list_dept_sheets.py --config config.json --input .cache/dept
 | 字段 | 含义 |
 |------|------|
 | `sheet` | 工作表名；**多子表场景留空**，由 `dept_sheet` 自动解析；单人 target 里也可省略 |
-| `row_match.column` | 行锚点列（常 A 列放姓名） |
+| `row_match.column` | 行锚点列（常 B 列放姓名，见 `options.sheet_name_column`） |
 | `row_match.contains` / `equals` | 匹配组员名或「小组名-姓名」 |
 | `col_match.row` | 表头行号（1-based，默认 `options.sheet_header_row`） |
 | `col_match.equals` | 与 `config.week` 或 `week_aliases` 匹配 |
@@ -166,7 +166,7 @@ python scripts/plan/list_dept_sheets.py --config config.json --input .cache/dept
 | 张三 | ... | **← 写入** | |
 | 李四 | ... | **← 写入** | |
 
-- `row_match`: A 列 `contains` 姓名
+- `row_match`: 姓名列 `contains` 成员名（默认 B 列，见 `options.sheet_name_column`）
 - `col_match`: 第 1 行 `equals` 周次
 
 若姓名列写的是 `组名-张三`，则 `row_match.contains` 仍可用 `张三` 子串匹配。

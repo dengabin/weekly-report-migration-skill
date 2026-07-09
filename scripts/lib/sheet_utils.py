@@ -113,7 +113,7 @@ def find_cell_in_rows(
             return None
 
     row_match = target.get("row_match", {})
-    col_letter = row_match.get("column", options.get("sheet_name_column", "A"))
+    col_letter = row_match.get("column", options.get("sheet_name_column", "B"))
     name_col = col_letter_to_index(col_letter)
 
     name = member["name"]

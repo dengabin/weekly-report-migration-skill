@@ -59,7 +59,7 @@ def build_si(text: str) -> str:
     escaped = escape(text, entities={"'": "&apos;", '"': "&quot;"})
     escaped = escaped.replace("\r\n", "\n").replace("\r", "\n")
     escaped = escaped.replace("\n", "&#10;")
-    # 与 E 列历史周报一致：不用 xml:space="preserve"
+    # 与同行历史周列一致：不用 xml:space="preserve"
     return f"<si><t>{escaped}</t></si>"
 
 

@@ -52,7 +52,7 @@ python scripts/plan/resolve_team_name.py
 ### Agent 话术示例
 
 > 部门周报表里有多个小组。你贴的组内周报里虽然有成员姓名，但在部门表里对应到了多个组（或找不到对应行），我无法自动判断要写入哪一组。  
-> 请告诉我**部门表中你们组的组名**（就是成员姓名上方那一行的组标题，例如「版式AI应用组」）。
+> 请告诉我**部门表中你们组的组名**（就是成员姓名上方那一行的组标题，例如「示例小组名」）。
 
 ---
 
@@ -66,15 +66,29 @@ Agent 将粘贴内容写入 `.cache/team-report.md`，再走 `extract_otl_weekly
 
 ---
 
-## 5. 与 `team_name` / `team_row_marker` 的关系
+## 5. 平铺姓名子表（无组标题行）
+
+部分部门子表**没有**组标题行分区，结构为：`工号 | 姓名 | 周列…`，成员按姓名直接平铺。
+
+`resolve_team_name.py` 检测到此类布局时返回 `status: flat_sheet`：
+
+- **不设置** `team_row_marker`（留空）
+- 可选记录 `options.link_column`（含 📄 的链接列，若存在）
+- `plan_sheet_patches` 在**全表**按姓名 + 周次表头定位单元格
+
+此场景**不问用户组名**。仅当表内有多组且无法从姓名唯一对应时才 AskQuestion。
+
+---
+
+## 6. 与 `team_name` / `team_row_marker` 的关系
 
 自动解析成功后写入：
 
 ```json
 {
-  "team_name": "版式AI应用组",
+  "team_name": "你的组名",
   "options": {
-    "team_row_marker": "版式AI应用组",
+    "team_row_marker": "你的组名",
     "use_team_name_as_marker": true
   }
 }
@@ -86,7 +100,7 @@ Agent 将粘贴内容写入 `.cache/team-report.md`，再走 `extract_otl_weekly
 
 ---
 
-## 6. 禁止行为
+## 7. 禁止行为
 
 - ❌ 在 `ambiguous` 时默认选第一个组
 - ❌ 用 `fourth_dept_name` 代替小组 `team_name`（前者是子表 tab，后者是表内组标题行）
@@ -94,7 +108,7 @@ Agent 将粘贴内容写入 `.cache/team-report.md`，再走 `extract_otl_weekly
 
 ---
 
-## 7. 相关命令
+## 8. 相关命令
 
 ```bash
 # 自动解析（run_preview 内已调用）

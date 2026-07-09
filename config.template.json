@@ -24,7 +24,9 @@
     "preserve_dept_placeholder": false,
     "sheet_header_row": 1,
     "sheet_name_column": "B",
-    "team_row_marker": ""
+    "team_row_marker": "",
+    "use_team_name_as_marker": false,
+    "link_column": ""
   },
   "wps365_read": {
     "root": "",

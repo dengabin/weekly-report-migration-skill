@@ -33,8 +33,8 @@
 | 阶段 | Agent 执行的命令 |
 |------|------------------|
 | 步骤 3 | `pip install -r requirements.txt` → `python scripts/workflow/preflight.py` |
-| 步骤 5 | `python scripts/workflow/run_preview.py`（或分步 extract → format → plan） |
-| 步骤 7 | `python scripts/workflow/apply_migration.py --upload` |
+| 步骤 5 | `python scripts/workflow/run_preview.py`（preflight → extract → build_config → resolve_team → ensure_week → format → plan） |
+| 步骤 7 | `python scripts/workflow/apply_migration.py --upload`（format → ensure_week → plan → patch → upload） |
 | 步骤 8 | 写回成功后自动 `cleanup_cache.py`（用户未要求保留时） |
 
 用户**永不**手动执行上表命令。

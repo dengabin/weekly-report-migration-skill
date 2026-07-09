@@ -22,7 +22,7 @@ NUMBER_ITEM_RE = re.compile(r"^(\s*)(\d+)[.、]\s*(.*)$")
 
 
 def infer_style(reference: str | None) -> StyleKind:
-    """从同行历史周列（通常 E 列）推断列表风格。"""
+    """从同行历史周列推断列表风格。"""
     if not reference or len(reference.strip()) < 30:
         return "circle_topic"
     lines = reference.split("\n")
@@ -229,7 +229,7 @@ def format_extracted_file(
     extracted_path: Path,
     *,
     references: dict[str, str] | None = None,
-    ref_col_index: int = 4,
+    ref_col_index: int | None = None,
     kdc_path: Path | None = None,
     sheet_name: str | None = None,
 ) -> None:
@@ -255,7 +255,7 @@ def main() -> int:
     parser.add_argument("--input", type=Path, default=Path(".cache/extracted.json"))
     parser.add_argument("--kdc-json", type=Path, default=Path(".cache/dept-content.json"))
     parser.add_argument("--sheet-name", default=None, help="部门子表名，默认从 config.json 读取")
-    parser.add_argument("--ref-col-index", type=int, default=4, help="历史周列 0-based 索引，默认 4=E")
+    parser.add_argument("--ref-col-index", type=int, default=None, help="历史周列 0-based 索引；默认按表结构自动检测")
     parser.add_argument("--in-place", action="store_true")
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()

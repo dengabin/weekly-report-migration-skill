@@ -114,4 +114,4 @@ python scripts/workflow/run_preview.py --week 2026-07-02
 python scripts/workflow/run_preview.py --relative-week 1
 ```
 
-`run_preview` / `apply_migration` 在更新 `config.week` 后应使用同一 `--week` 参数。
+`run_preview` / `apply_migration` 在更新 `config.week` 后应使用同一周次。`apply_migration.py` 支持 `--week` 覆盖（写回前须与预览提取的周次一致）。

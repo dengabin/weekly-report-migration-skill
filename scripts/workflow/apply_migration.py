@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
-from paths import CACHE, SCRIPTS_ROOT, SKILL_ROOT, setup_sys_path  # noqa: E402
+from paths import CACHE, SCRIPTS_ROOT, SKILL_ROOT, find_dept_ksheet, setup_sys_path  # noqa: E402
 
 setup_sys_path("patch")
 from wps365_bridge import find_wps365_read_root, resolve_wps_sid, run_drive  # noqa: E402
@@ -23,36 +23,6 @@ WORKFLOW = SCRIPTS_ROOT / "workflow"
 def load_json_file(path: Path) -> dict:
     with path.open(encoding="utf-8") as f:
         return json.load(f)
-
-
-def find_dept_ksheet(cache: Path, cfg: dict | None = None) -> Path | None:
-    exclude = {"dept-report-patched.ksheet", "test-patch.ksheet", "dept-report-patched-zip.ksheet"}
-    candidates = [
-        p
-        for p in cache.glob("*.ksheet")
-        if p.name not in exclude and not p.name.startswith("test")
-    ]
-    title = ((cfg or {}).get("dept_report") or {}).get("title", "")
-    titled = [p for p in candidates if title and title in p.name]
-    if titled:
-        candidates = titled
-
-    if not candidates:
-        return None
-
-    def quality(path: Path) -> tuple[int, int]:
-        try:
-            import zipfile
-
-            with zipfile.ZipFile(path) as z:
-                if "customXml/item2.xml" not in z.namelist():
-                    return (0, path.stat().st_size)
-                links = z.read("customXml/item2.xml").count(b"hypersublink")
-                return (links, path.stat().st_size)
-        except OSError:
-            return (0, 0)
-
-    return max(candidates, key=quality)
 
 
 def restore_raw_content(extracted_path: Path) -> None:
@@ -77,6 +47,7 @@ def verify_patched_cells(patched: Path, plan: dict, extracted: dict) -> list[dic
         import zipfile
 
         from patch_ksheet_zip import read_cell_text, resolve_sheet_path
+        from sheet_utils import index_to_col
 
         with zipfile.ZipFile(patched) as z:
             sheet_paths: dict[str, str] = {}
@@ -92,7 +63,9 @@ def verify_patched_cells(patched: Path, plan: dict, extracted: dict) -> list[dic
                         errors.append({"name": name, "reason": f"sheet 不存在: {sheet}"})
                         continue
                     sheet_paths[sheet] = sp
-                cell_ref = patch.get("cell") or f"C{patch['row']}"
+                cell_ref = patch.get("cell")
+                if not cell_ref:
+                    cell_ref = f"{index_to_col(int(patch.get('col', 1)) - 1)}{patch['row']}"
                 actual = read_cell_text(patched, sheet_paths[sheet], cell_ref)
                 if actual != expected:
                     errors.append(
@@ -148,6 +121,7 @@ def main() -> int:
     parser.add_argument("--skip-bullet-format", action="store_true", help="保留 otl 原文 - 列表符（默认会转为 •/◦）")
     parser.add_argument("--skip-download", action="store_true", help="上传前不重新下载云文档")
     parser.add_argument("--link-id", default=None, help="部门文档 link_id，默认读 config")
+    parser.add_argument("--week", default=None, help="覆盖 config.week（须与预览/提取一致）")
     parser.add_argument(
         "--keep-cache",
         action="store_true",
@@ -156,6 +130,8 @@ def main() -> int:
     args = parser.parse_args()
 
     cfg = load_json_file(SKILL_ROOT / args.config)
+    if args.week:
+        cfg["week"] = args.week
 
     restore_raw_content(CACHE / "extracted.json")
 
@@ -196,6 +172,8 @@ def main() -> int:
             "--config",
             args.config,
         ]
+        if args.week:
+            ensure_cmd.extend(["--week", args.week])
         if run_step(ensure_cmd) != 0:
             return 1
         input_path = find_dept_ksheet(CACHE, cfg) or input_path

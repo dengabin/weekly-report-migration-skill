@@ -18,7 +18,7 @@
 
 ## `.ksheet` 写回与超链接（重要）
 
-部门周报表格 D 列等可点击链接**不存储在 openpyxl 的 `cell.hyperlink`**，而在 `customXml/item2.xml` 的 `hypersublink` / `filelink` 中。
+部门周报表格中含 📄 的可点击链接**不存储在 openpyxl 的 `cell.hyperlink`**，而在 `customXml/item2.xml` 的 `hypersublink` / `filelink` 中。
 
 | 操作 | 结果 |
 |------|------|

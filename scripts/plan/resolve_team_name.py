@@ -111,7 +111,6 @@ def apply_flat_sheet_config(cfg: dict, rows: list) -> None:
     if link_col is not None:
         from sheet_utils import index_to_col as _i2c
         opts["link_column"] = _i2c(link_col)
-        opts["dept_content_col_offset"] = 1
 
 
 def validate_team_in_sheet(rows: list, member_names: list[str], cfg: dict) -> bool:
