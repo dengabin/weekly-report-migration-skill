@@ -173,11 +173,264 @@ def find_cell_in_rows(
             continue
         if equals and cell_name == equals:
             return i, col_idx
-        if contains and contains in cell_name:
+        if dept_cell_matches_member(name, cell_name, member, row_contains=contains):
             return i, col_idx
         if not equals and not contains and name in cell_name:
             return i, col_idx
     return None
+
+
+# otl 姓名与部门表 B 列：仅精确/子串匹配；不一致时不自动容错（由 Agent AskQuestion）
+
+
+def member_name_variants(otl_name: str, member: dict | None = None) -> list[str]:
+    """otl 名 + config 中用户显式配置的 dept_name / aliases。"""
+    names: list[str] = []
+    if otl_name:
+        names.append(otl_name.strip())
+    if member:
+        dept_name = (member.get("dept_name") or "").strip()
+        if dept_name:
+            names.append(dept_name)
+        for a in member.get("aliases") or []:
+            a = (a or "").strip()
+            if a:
+                names.append(a)
+        target = member.get("target") or {}
+        row_match = target.get("row_match") or {}
+        contains = (row_match.get("contains") or "").strip()
+        if contains and contains not in names:
+            names.append(contains)
+    return list(dict.fromkeys(names))
+
+
+def dept_cell_matches_member(
+    otl_name: str,
+    cell_name: str,
+    member: dict | None = None,
+    *,
+    row_contains: str | None = None,
+) -> bool:
+    """otl 成员名与部门表姓名列是否匹配（仅精确或「组名-姓名」分段，禁止相近字自动合并）。"""
+    cell = (cell_name or "").strip()
+    if not cell or cell in ("部门周报",):
+        return False
+    variants = member_name_variants(otl_name, member)
+    if row_contains and row_contains.strip() and row_contains.strip() not in variants:
+        variants.append(row_contains.strip())
+    for name in variants:
+        if not name:
+            continue
+        if name == cell:
+            return True
+        for part in re.split(r"[-/|｜]", cell):
+            if part.strip() == name:
+                return True
+    return False
+
+
+def list_dept_sheet_person_names(rows: list[list[Any]], cfg: dict) -> list[str]:
+    """平铺子表姓名列全部人名（去重）。"""
+    options = cfg.get("options", {})
+    header_row = int(options.get("sheet_header_row", 1)) - 1
+    name_col = detect_name_column_in_rows(rows, cfg)
+    names: list[str] = []
+    seen: set[str] = set()
+    for i, row in enumerate(rows):
+        if i <= header_row or len(row) <= name_col:
+            continue
+        cell = str(row[name_col] or "").strip()
+        if not cell or cell in ("部门周报",) or cell in seen:
+            continue
+        seen.add(cell)
+        names.append(cell)
+    return names
+
+
+def dept_name_hints_for_member(
+    rows: list[list[Any]],
+    otl_name: str,
+    cfg: dict,
+    member: dict | None = None,
+) -> list[str]:
+    """部门表中与 otl 名相近但未匹配的人名（仅供 AskQuestion 提示，不用于自动匹配）。"""
+    hints: list[str] = []
+    otl = (otl_name or "").strip()
+    if not otl:
+        return hints
+    for cell in list_dept_sheet_person_names(rows, cfg):
+        if dept_cell_matches_member(otl_name, cell, member):
+            continue
+        if otl in cell or cell in otl:
+            hints.append(cell)
+        elif len(otl) >= 2 and len(cell) >= 2 and otl[:2] == cell[:2]:
+            if abs(len(otl) - len(cell)) <= 2:
+                hints.append(cell)
+    return hints
+
+
+def find_member_name_row(
+    rows: list[list[Any]],
+    otl_name: str,
+    cfg: dict,
+    member: dict | None = None,
+) -> int | None:
+    """平铺子表：在姓名列查找成员行（0-based row index）。"""
+    options = cfg.get("options", {})
+    header_row = int(options.get("sheet_header_row", 1)) - 1
+    name_col = detect_name_column_in_rows(rows, cfg)
+    row_contains = None
+    if member:
+        row_contains = (member.get("target") or {}).get("row_match", {}).get("contains")
+    for i, row in enumerate(rows):
+        if i <= header_row or len(row) <= name_col:
+            continue
+        cell_name = str(row[name_col] or "").strip()
+        if dept_cell_matches_member(otl_name, cell_name, member, row_contains=row_contains):
+            return i
+    return None
+
+
+def members_missing_in_flat_sheet(
+    rows: list[list[Any]],
+    member_names: list[str],
+    cfg: dict,
+    members_by_name: dict[str, dict] | None = None,
+) -> tuple[list[str], dict[str, list[str]]]:
+    """返回 (未匹配 otl 名, 每人相近部门表人名提示)。"""
+    members_by_name = members_by_name or {}
+    missing: list[str] = []
+    hints: dict[str, list[str]] = {}
+    for name in member_names:
+        member = members_by_name.get(name, {"name": name})
+        if find_member_name_row(rows, name, cfg, member) is None:
+            missing.append(name)
+            similar = dept_name_hints_for_member(rows, name, cfg, member)
+            if similar:
+                hints[name] = similar
+    return missing, hints
+
+
+def persist_resolved_sheet_name(cfg: dict, resolved_sheet: str | None) -> None:
+    if not resolved_sheet:
+        return
+    dept = cfg.setdefault("dept_sheet", {})
+    if not (dept.get("sheet_name") or "").strip():
+        dept["sheet_name"] = resolved_sheet
+
+
+def dept_sheet_layout_is_flat(cfg: dict) -> bool:
+    layout = str((cfg.get("dept_sheet") or {}).get("layout") or "").strip().lower()
+    return layout in ("flat", "flat_sheet", "平铺")
+
+
+def dept_sheet_layout_is_grouped(cfg: dict) -> bool:
+    """用户显式声明页内多组分区时，跳过平铺启发式。"""
+    layout = str((cfg.get("dept_sheet") or {}).get("layout") or "").strip().lower()
+    return layout in ("grouped", "group", "multi_group", "多组", "分区")
+
+
+def is_flat_dept_sheet(rows: list, cfg: dict) -> bool:
+    """
+    检测子表是否为「平铺姓名」布局（工号 | 姓名 | 链接列? | 周列…，无组标题行分区）。
+    - config.dept_sheet.layout=flat → 强制平铺
+    - config.dept_sheet.layout=grouped → 强制多组分区（不走平铺）
+    - 未配置 → 启发式：链接列(📄) 或 姓名列右侧表头含「月日」
+    """
+    if dept_sheet_layout_is_grouped(cfg):
+        return False
+    if dept_sheet_layout_is_flat(cfg):
+        return True
+    if detect_link_column_in_rows(rows, cfg) is not None:
+        return True
+    header_row = int(cfg.get("options", {}).get("sheet_header_row", 1)) - 1
+    if header_row < 0 or header_row >= len(rows):
+        return False
+    header = rows[header_row]
+    name_col = detect_name_column_in_rows(rows, cfg)
+    for j in range(name_col + 1, len(header)):
+        text = str(header[j] if j < len(header) else "").strip()
+        if re.search(r"\d+月\d+日", text):
+            return True
+    return False
+
+
+def detect_name_column_in_rows(rows: list, cfg: dict) -> int:
+    """从 config 或表头推断姓名列（0-based）。"""
+    opts = cfg.get("options", {})
+    if opts.get("sheet_name_column"):
+        return col_letter_to_index(opts["sheet_name_column"])
+    header_row = int(opts.get("sheet_header_row", 1)) - 1
+    if header_row < 0 or header_row >= len(rows):
+        return 1
+    header = rows[header_row]
+    for j, cell in enumerate(header):
+        text = str(cell or "").strip()
+        if "姓名" in text or "名字" in text or "name" in text.lower():
+            return j
+    return 1
+
+
+def detect_link_column_in_rows(rows: list, cfg: dict) -> int | None:
+    """扫描前几行数据行，找到内容以 📄 开头的列索引（0-based）。"""
+    header_row = int(cfg.get("options", {}).get("sheet_header_row", 1)) - 1
+    for i in range(header_row + 1, min(header_row + 8, len(rows))):
+        row = rows[i]
+        for j, cell in enumerate(row):
+            if str(cell or "").strip().startswith("📄"):
+                return j
+    link_col = (cfg.get("options") or {}).get("link_column")
+    if link_col:
+        return col_letter_to_index(link_col)
+    return None
+
+
+def apply_flat_sheet_layout_to_config(cfg: dict, rows: list) -> None:
+    opts = cfg.setdefault("options", {})
+    opts["team_row_marker"] = ""
+    opts["use_team_name_as_marker"] = False
+    link_col = detect_link_column_in_rows(rows, cfg)
+    if link_col is not None:
+        opts["link_column"] = index_to_col(link_col)
+    dept = cfg.setdefault("dept_sheet", {})
+    dept["layout"] = "flat"
+
+
+def format_team_resolve_agent_message(report: dict) -> str:
+    """供 run_preview / Agent 在 resolve_team_name 退出码 3 时打印说明。"""
+    status = report.get("status")
+    if report.get("layout") == "flat_sheet" and status == "not_found":
+        lines = [
+            "平铺子表：otl 姓名与部门表姓名列不一致，无法继续预览。",
+            "此类子表无页内组标题行，请勿让用户在其它员工姓名之间「选组」。",
+            "常见原因：组内周报 ## 姓名 与部门表登记名不一致（多字、少字、笔误）。",
+        ]
+        for name in report.get("not_found", []):
+            hints = (report.get("name_hints") or {}).get(name, [])
+            if hints:
+                lines.append(
+                    f"  · otl «{name}» → 部门表相近人名: {', '.join(hints)}"
+                )
+            else:
+                lines.append(f"  · otl «{name}» 在部门表未找到")
+        lines.append(
+            "Agent 必须 AskQuestion：请用户确认正确姓名后修改 otl 标题或 config.members。"
+        )
+        return "\n".join(lines)
+    if status == "ambiguous":
+        cands = report.get("candidates") or []
+        return (
+            "多组分区子表：无法从姓名唯一确定页内组标题（退出码 3）。"
+            f"候选组: {cands}。"
+            "若子表实际为平铺姓名表，可设 config.dept_sheet.layout=flat 或确认子表 tab；"
+            "详见 references/team-name-resolution.md"
+        )
+    if status in ("need_team_name", "not_found"):
+        return (
+            f"组名解析失败（{status}）。"
+            "见 .cache/team-resolve.json 与 references/team-name-resolution.md"
+        )
+    return "组名/姓名解析失败，见 references/team-name-resolution.md"
 
 
 def is_member_name_cell(cell: str, member_names: list[str]) -> bool:
@@ -216,6 +469,7 @@ def resolve_team_from_members(
     rows: list[list[Any]],
     member_names: list[str],
     cfg: dict,
+    members_by_name: dict[str, dict] | None = None,
 ) -> dict:
     """
     根据 otl 成员姓名在部门子表中反推组名。
@@ -223,13 +477,16 @@ def resolve_team_from_members(
     """
     options = cfg.get("options", {})
     header_row = int(options.get("sheet_header_row", 1)) - 1
-    name_col = col_letter_to_index(options.get("sheet_name_column", "B"))
+    name_col = detect_name_column_in_rows(rows, cfg)
+
+    members_by_name = members_by_name or {}
 
     member_groups: dict[str, str] = {}
     ambiguous: list[str] = []
     not_found: list[str] = []
 
     for member in member_names:
+        member_cfg = members_by_name.get(member, {"name": member})
         found_rows: list[int] = []
         for i in range(header_row + 1, len(rows)):
             if len(rows[i]) <= name_col:
@@ -237,7 +494,7 @@ def resolve_team_from_members(
             cell = str(rows[i][name_col] or "").strip()
             if not cell or cell in ("部门周报",):
                 continue
-            if member in cell or cell == member:
+            if dept_cell_matches_member(member, cell, member_cfg):
                 found_rows.append(i)
 
         if not found_rows:

@@ -38,7 +38,7 @@
 
 ---
 
-## 2. 自动解析逻辑
+## 2. 自动解析逻辑（分支顺序）
 
 预检并提取 otl 后，Agent 执行：
 
@@ -46,37 +46,53 @@
 python scripts/plan/resolve_team_name.py
 ```
 
-脚本读取 `.cache/extracted.json` 成员姓名 + `.cache/dept-content.json` 目标子表，对每个成员：
+脚本读取 `.cache/extracted.json`、**优先**已下载 `.cache/*.ksheet`（与 plan/写回同源），其次 KDC / Markdown。
 
-1. 在部门表姓名列（默认 B 列）查找含该姓名的行
+### 2.1 先判子表布局
+
+| 布局 | 判定方式 | 脚本行为 |
+|------|----------|----------|
+| **平铺** | `dept_sheet.layout=flat`，或启发式（链接列 📄 / 表头含「月日」） | 返回 `flat_sheet`；**不**向上扫描组标题；按姓名列定位 |
+| **多组分区** | `dept_sheet.layout=grouped`，或启发式未命中平铺 | 按 §2.2 反推 `team_name` |
+
+`layout` 留空 = 自动检测。检测为平铺后脚本会写入 `layout: flat` 与 `sheet_name`（若为空）。
+
+### 2.2 多组分区子表（仅非平铺时）
+
+对每个 otl 成员：
+
+1. 在部门表姓名列查找匹配行（精确或 `组名-姓名` 分段）
 2. 向上回溯到最近的**组标题行**（该行文本不含任何 otl 成员姓名）
-3. 若全部成员落在**同一组** → `status: resolved`，自动写入 `config.team_name` 与 `options.team_row_marker`
-4. 否则 → `status: ambiguous` / `need_team_name` / `not_found`，退出码 **3**
+3. 若全部成员落在**同一组** → `status: resolved`，写入 `team_name` / `team_row_marker`
+4. 否则 → `ambiguous` / `need_team_name` / `not_found`，退出码 **3**
 
 输出：`.cache/team-resolve.json`
 
 ---
 
-## 3. 需要用户指定组名时
+## 3. 需要用户介入时（退出码 3）
 
-当 `resolve_team_name.py` 退出码为 3，或 `team-resolve.json` 的 `status` 为 `ambiguous` / `need_team_name` / `not_found`：
+读 `.cache/team-resolve.json` 的 `status` / `layout`：
 
-1. 向用户说明：**部门表中有多个组，当前无法从姓名唯一确定要写入哪一组**
-2. 列出 `candidates`（若能推断出部分候选组名）或请用户给出部门表中的**组标题行文字**
-3. AskQuestion 等待用户回复组名
-4. 收到后执行：
-   ```bash
-   python scripts/plan/resolve_team_name.py --team-name "<用户给的组名>"
-   python scripts/workflow/run_preview.py
-   ```
-5. **禁止**在未明确组名前继续 `plan_sheet_patches` / 写回
+| 情况 | Agent 动作 |
+|------|------------|
+| `ambiguous` / `need_team_name`（多组分区） | AskQuestion 要**页内组标题行**组名；`--team-name` 重跑 |
+| `not_found` + `layout: flat_sheet`（平铺，姓名对不上） | AskQuestion：otl `## 姓名` 可能与部门表不一致，参考 `name_hints`；**勿**让用户在员工名之间选「组」 |
+| `not_found`（多组分区） | 同 ambiguous 或说明部门表无对应姓名 |
 
-### Agent 话术示例
+**禁止**在未明确前继续 `plan_sheet_patches` / 写回。
 
-> 部门周报表里有多个小组。你贴的组内周报里虽然有成员姓名，但在部门表里对应到了多个组（或找不到对应行），我无法自动判断要写入哪一组。  
-> 请告诉我**部门表中你们组的组名**（就是成员姓名上方那一行的组标题，例如「示例小组名」）。
+### 多组分区话术示例
 
----
+> 部门周报表里有多个小组，无法从姓名唯一确定要写入哪一组。  
+> 请告诉我**部门表中你们组的组标题**（成员姓名上方那一行，例如「示例小组名」）。
+
+### 平铺表姓名不一致话术示例
+
+> 部门子表是平铺姓名表，但组内周报里的 `## 姓名` 与部门表登记名不一致（例如 otl 为「张三儿」、部门表为「张三」）。  
+> 请确认是否写周报时标题写错，或告知部门表应使用的正确姓名。
+
+收到用户确认后：改 otl / 更新 `config.members`，或 `--team-name`（仅多组分区），再 `run_preview.py`。
 
 ## 4. 用户直接粘贴组内周报
 
@@ -90,15 +106,39 @@ Agent 将粘贴内容写入 `.cache/team-report.md`，再走 `extract_otl_weekly
 
 ## 5. 平铺姓名子表（无组标题行）
 
-部分部门子表**没有**组标题行分区，结构为：`工号 | 姓名 | 周列…`，成员按姓名直接平铺。
+部分部门子表**没有**组标题行分区，结构为：`工号 | 姓名 | 链接列 | 周列…`，成员按姓名直接平铺。
+
+**判定优先于组名反推**：检测到平铺布局后，**不再**执行「向上扫描组标题行」逻辑，避免把表中**其它员工行**误当成「组名」并返回 `ambiguous`。
 
 `resolve_team_name.py` 检测到此类布局时返回 `status: flat_sheet`：
 
 - **不设置** `team_row_marker`（留空）
 - 可选记录 `options.link_column`（含 📄 的链接列，若存在）
+- 自动写入 `dept_sheet.sheet_name`（若 config 中为空）
 - `plan_sheet_patches` 在**全表**按姓名 + 周次表头定位单元格
 
-此场景**不问用户组名**。仅当表内有多组且无法从姓名唯一对应时才 AskQuestion。
+### 5.1 otl 与部门表姓名不一致
+
+| 场景 | 处理 |
+|------|------|
+| otl 与部门表姓名列**完全一致**，或部门表为 `组名-姓名` 且姓名段一致 | 正常匹配 |
+| 名字不同（otl 与部门表登记名不一致） | **不匹配**；`not_found` + `layout: flat_sheet` |
+| Agent | **AskQuestion**：说明可能为 otl `## 姓名` 笔误；`name_hints` 列出部门表相近人名供核对 |
+| 用户确认部门表用名后 | 改 otl 标题，或在 `config.members[]` 显式配置 `dept_name` / `aliases` |
+
+**禁止**自动把相近姓名当成同一人。
+
+### 5.2 `dept_sheet.layout` 配置（可选）
+
+| 值 | 含义 |
+|----|------|
+| `""`（默认） | 自动检测平铺 vs 多组分区 |
+| `flat` | 强制平铺：按姓名列定位，不问组名 |
+| `grouped` | 强制多组分区：走组标题反推，即使表内有链接列 |
+
+自动检测为平铺时，脚本会写入 `layout: flat`；用户也可在首次配置时手动指定。
+
+此场景**不问用户组名**（平铺且全员匹配时）。仅多组分区且无法唯一对应时才 AskQuestion 组名。
 
 ---
 

@@ -51,6 +51,6 @@ TodoWrite(merge=false) → step01 in_progress，step02–08 pending
 - 缺 wps_sid：**必须 AskQuestion**（题干含 wps-sid-guide 步骤）→ 用户回复后 `setup_wps_sid.py` → 自动续跑；**禁止**仅用正文索要后结束回合
 - 缺 config 链接、缺子表/组名、写回确认：同样**必须 AskQuestion**，不得中断会话；**组内/部门链接分两次问**，禁止合并
 - **`need_dept_sheet`（preflight 退出码 4）**：`config.dept_sheet.sheet_name` 不在已下载 ksheet 子表列表 → AskQuestion 列出全部 tab 名；禁止写临时 `.py` 探测
-- **防误写**：仅百分百确定（子表精确唯一、组名唯一解析）时可不问；任一不确定则 AskQuestion，禁止模糊猜选后写回
+- **防误写**：子表/组名仅百分百确定时可不问；平铺子表 `flat_sheet` 不问组名；姓名不一致 AskQuestion（平铺表勿把员工名当组名选）；多组 `ambiguous` AskQuestion 组名
 - 写回前必须完成步骤 6 用户确认；仅改指定周次内容列
 - 写回成功后默认清理 `.cache`；用户说「清理缓存」时同样仅清 `.cache`（不删 config / wps365-read 凭证）；用户说保留时用 `--keep-cache`

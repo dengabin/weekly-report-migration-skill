@@ -1,5 +1,5 @@
 {
-  "$schema_note": "复制为 config.json 后填写。week 每周更新。",
+  "$schema_note": "复制为 config.json 后填写。week 每周更新。dept_sheet.layout: 留空=自动检测，flat=平铺姓名表，grouped=多组分区。",
   "team_name": "你的组名",
   "week": "YYYY-MM-DD",
   "week_aliases": [],
@@ -16,6 +16,8 @@
     "aliases": [],
     "match": "contains",
     "sheet_name": "",
+    "layout": "",
+    "_layout_note": "留空=自动检测；flat=平铺姓名表；grouped=页内多组分区",
     "fallback_scan": true
   },
   "members": [],

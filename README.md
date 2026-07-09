@@ -52,8 +52,9 @@
 | 组内周报 | 粘贴 **otl 云文档链接**，或直接**粘贴周报正文**（见下） | 首次 |
 | 部门周报 | 粘贴 **ksheet 云文档链接** | 首次 |
 | `wps_sid` | 按 Agent 图文步骤从浏览器 Cookie 复制粘贴 | 首次或过期时 |
-| 部门子表名 | 从 Agent 列出的子表里选一个 | 少数情况 |
-| 小组组名 | 告诉 Agent 部门表里你们组的**组标题行文字** | 仅当部门表多组且无法从姓名自动判断时 |
+| 部门子表名 | 从 Agent 列出的子表里选一个 | tab 名对不上或 `need_dept_sheet` 时 |
+| 页内组名 | 部门表**多组分区**且无法从姓名自动判断时，提供组标题行文字 | 仅 `ambiguous` 等多组场景 |
+| otl 姓名核对 | 平铺子表下 otl `## 姓名` 与部门表不一致时，确认是否笔误 | `not_found` + `layout: flat_sheet` 时 |
 
 ### Agent 不会向你要的
 
@@ -61,7 +62,8 @@
 |--------|------|
 | 组成员名单 | 从组内 otl 的 `## 姓名` 自动读取 |
 | 「要迁移哪一周？」（你没提周次时） | 默认取组内 otl **最新一期**（日期 ≤ 今天） |
-| 小组组名（多数情况） | otl 里姓名能在部门表唯一对应到同一组时自动识别 |
+| 小组组名（多组分区表） | otl 里姓名能在部门表**唯一对应到同一组标题区块**时自动识别 |
+| 小组组名（平铺姓名表） | 无组标题行，按姓名列直接定位，**不问组名** |
 
 ### 组内周报：链接 or 直接粘贴正文
 
@@ -200,8 +202,11 @@ Agent：请提供组内周报链接（或直接粘贴 otl 正文）
 Agent：请提供部门周报链接
 你：  https://365.kdocs.cn/l/DEPT_LINK_ID
 
-Agent：（若部门表多组且无法自动识别）请提供你们组在部门表里的组名
+Agent：（若多组分区且无法自动识别）请提供你们组在部门表里的组标题
 你：  示例小组名
+
+Agent：（若平铺表 otl 姓名与部门表不一致）otl 为「张三儿」、部门表为「张三」，是否写错？
+你：  是笔误，按部门表「张三」改 otl
 
 Agent：（若缺凭证）请粘贴 wps_sid
 你：  （粘贴 Cookie 值）
@@ -258,16 +263,22 @@ Agent：已写回，请 Ctrl+F5 刷新部门表
 - **只改**指定周的**内容列**；历史周、其它子表、📄 链接列不动  
 - 仅调整列表符、缩进等排版，**不改正文词句**
 
-### 部门表里有多个组时
+### 部门表布局：平铺 vs 多组分区
 
-- otl 里**有成员姓名**，且姓名在部门表能**唯一对应到同一组** → Agent **不问组名**，直接迁移  
-- 无法判断属于哪一组 → Agent **会问你组名**，**不会**随便写到别的组
+部门子表常见两种结构，Agent **自动检测**（也可在 `config.dept_sheet.layout` 手动指定）：
+
+| 布局 | 表头特征 | Agent 行为 |
+|------|----------|------------|
+| **平铺姓名表** | 工号 \| 姓名 \|（可选 📄 链接列）\| 周列… | 不问组名；按姓名列找行；`layout` 可写 `flat` |
+| **多组分区表** | 组标题行 + 其下成员行 | 反推 `team_name`；分不清时才问组名；`layout` 可写 `grouped` |
+
+若 otl 的 `## 姓名` 与部门表登记名**不一致**（多字、少字、笔误），Agent 会 **AskQuestion** 请你核对，**不会**自动当成同一人，也**不会**让你在其它员工姓名里「选组」。
 
 ### 本地缓存与 config
 
 写回成功后默认清空 `.cache/`（中间文件）。**下次迁移会重新从云端拉**组内 otl 与部门表，不靠上次 `.cache`。
 
-`config.json`、`wps_sid` 写在 **Skill 目录（SKILL_ROOT）** 内，不在业务项目根目录。会保留文档链接与凭证；**组名每次迁移会自动按最新部门表重算**。若换了部门文档，说「**更新周报迁移的文档链接**」。
+`config.json`、`wps_sid` 写在 **Skill 目录（SKILL_ROOT）** 内，不在业务项目根目录。会保留文档链接与凭证；多组分区时 `team_name` 每次迁移会按最新部门表重算，平铺表则主要保留 `dept_sheet.layout` 与 `sheet_name`。若换了部门文档，说「**更新周报迁移的文档链接**」。
 
 ### `wps_sid` 会过期
 
@@ -306,8 +317,8 @@ Agent：已写回，请 Ctrl+F5 刷新部门表
 ```
 
 - 每周一个 `# YYYY-MM-DD`（或 Agent 能识别的日期标题）  
-- 每人一个 `## 姓名`  
-- 部门表按「组名 + 姓名 + 周次列」定位单元格（Agent 自动匹配）
+- 每人一个 `## 姓名`（须与部门表登记名**一致**；多字/少字不会自动合并）  
+- 多组分区表：按「组标题 + 姓名 + 周次列」定位；平铺表：按「姓名 + 周次列」定位（Agent 自动判断布局）
 
 ---
 
@@ -321,7 +332,7 @@ Agent：已写回，请 Ctrl+F5 刷新部门表
 | [references/install-project-rule.md](references/install-project-rule.md) | 业务项目启用（仅指针 Rule） |
 | [references/wps-sid-guide.md](references/wps-sid-guide.md) | 获取 wps_sid |
 | [references/week-resolution.md](references/week-resolution.md) | 周次与「上周」规则（技术细节） |
-| [references/team-name-resolution.md](references/team-name-resolution.md) | 多组部门表与组名识别 |
+| [references/team-name-resolution.md](references/team-name-resolution.md) | 平铺/多组布局、组名与姓名匹配、何时 AskQuestion |
 | [references/mapping-rules.md](references/mapping-rules.md) | 部门表行列规则 |
 | [references/workflow/INDEX.md](references/workflow/INDEX.md) | Agent 分步执行索引 |
 

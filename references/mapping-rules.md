@@ -74,6 +74,16 @@
 }
 ```
 
+### `layout`（平铺 vs 多组分区）
+
+| 值 | 含义 |
+|----|------|
+| `""`（默认） | 自动检测：有 📄 链接列或表头含「月日」→ 平铺；否则走多组分区 |
+| `flat` | 强制平铺：按姓名列定位，不设 `team_row_marker` |
+| `grouped` | 强制多组分区：走组标题反推 |
+
+检测为平铺后，脚本会写入 `layout: flat` 与 `sheet_name`（若为空）。详见 [team-name-resolution.md](team-name-resolution.md)。
+
 ### 发现子表命令
 
 ```bash
@@ -117,7 +127,12 @@ python scripts/plan/list_dept_sheets.py --config config.json --input .cache/<部
 | `col_match.row` | 表头行号（1-based，默认 `options.sheet_header_row`） |
 | `col_match.equals` | 与 `config.week` 或 `week_aliases` 匹配 |
 
-**行匹配增强**：若部门表按小组分块，须先通过 `resolve_team_name.py` 确定 `team_name`，再设置 `options.team_row_marker`，仅在该组区块内找姓名。详见 [team-name-resolution.md](team-name-resolution.md)。
+**行匹配增强**：
+
+- **多组分区表**：须先通过 `resolve_team_name.py` 确定 `team_name`，再设置 `options.team_row_marker`，仅在该组区块内找姓名。
+- **平铺姓名表**（`layout: flat`）：`team_row_marker` 留空，在整张表按姓名列 + 周次表头定位。
+
+姓名须与部门表**完全一致**或 `组名-姓名` 分段匹配；相近但不一致时不会自动合并，见 [team-name-resolution.md](team-name-resolution.md)。
 
 ### `heading_block`（.otl 部门文档）
 
@@ -145,7 +160,7 @@ python scripts/plan/list_dept_sheets.py --config config.json --input .cache/<部
 
 ---
 
-## 3. 周次 / 表头模糊匹配
+## 4. 周次 / 表头模糊匹配
 
 `week` 与表头比较前统一规范化：
 
@@ -157,7 +172,9 @@ python scripts/plan/list_dept_sheets.py --config config.json --input .cache/<部
 
 ---
 
-## 4. 配置示例：部门表结构（单个子表内）
+## 5. 配置示例：部门表结构
+
+### 5.1 多组分区（组标题行 + 成员）
 
 典型部门周报表：
 
@@ -170,11 +187,20 @@ python scripts/plan/list_dept_sheets.py --config config.json --input .cache/<部
 - `row_match`: 姓名列 `contains` 成员名（默认 B 列，见 `options.sheet_name_column`）
 - `col_match`: 第 1 行 `equals` 周次
 
-若姓名列写的是 `组名-张三`，则 `row_match.contains` 仍可用 `张三` 子串匹配。
+若姓名列写的是 `组名-张三`，则精确匹配姓名段 `张三`。
+
+### 5.2 平铺姓名（工号 | 姓名 | 周列）
+
+| 工号 | 姓名 | 7月9日 | … |
+|------|------|--------|---|
+| 001 | 张三 | … | |
+
+- 无组标题行；`team_row_marker` 为空
+- `row_match`：姓名列精确匹配 otl `## 姓名`
 
 ---
 
-## 5. 首次对齐检查清单
+## 6. 首次对齐检查清单
 
 配置完成后，让用户确认：
 

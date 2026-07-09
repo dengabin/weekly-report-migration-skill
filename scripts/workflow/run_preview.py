@@ -103,12 +103,21 @@ def main() -> int:
         "--dept-markdown",
         str(CACHE / "dept-report.md"),
     ]
+    dept_ksheet = find_dept_ksheet(CACHE)
+    if dept_ksheet:
+        resolve_cmd.extend(["--dept-ksheet", str(dept_ksheet)])
     code = run(resolve_cmd)
     if code == 3:
-        report = CACHE / "team-resolve.json"
-        if report.exists():
-            print(report.read_text(encoding="utf-8"), file=sys.stderr)
-        print("\n需要用户指定组名：见 references/team-name-resolution.md", file=sys.stderr)
+        report_path = CACHE / "team-resolve.json"
+        if report_path.exists():
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            print(report_path.read_text(encoding="utf-8"), file=sys.stderr)
+            sys.path.insert(0, str(PLAN.parent / "lib"))
+            from sheet_utils import format_team_resolve_agent_message
+
+            print("\n" + format_team_resolve_agent_message(report), file=sys.stderr)
+        else:
+            print("\n组名/姓名解析失败：见 references/team-name-resolution.md", file=sys.stderr)
         return code
     if code != 0:
         return code
