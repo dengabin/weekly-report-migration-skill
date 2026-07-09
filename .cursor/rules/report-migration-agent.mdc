@@ -11,17 +11,37 @@ alwaysApply: false
 | 用户说 | 做什么 |
 |--------|--------|
 | 「加载 / 安装 skill」 | 确认目录或复制到 `~/.cursor/skills/` → **结束，不要问链接** |
-| 「周报迁移」等触发词 | 读 workflow INDEX → 步骤 1→8 |
+| 「周报迁移」等触发词 | **先 TodoWrite 八步** → 读 workflow INDEX → 步骤 1→8 |
+
+---
+
+## ⛔ TodoWrite 八步（第一优先，强制）
+
+触发迁移后、**任何脚本之前**，**必须** `TodoWrite` 创建 workflow **01→08** 共八项（`step01`…`step08`）。
+
+**完整定义见** `references/workflow/TODO-TRACKING.md`（维护文档时**不得删除或弱化**该文件与本节）。
+
+```
+TodoWrite(merge=false) → step01 in_progress，step02–08 pending
+读完 01 原则 MD → step01 completed，step02 in_progress
+每完成一步 workflow → 对应 step completed，下一步 in_progress
+```
+
+- **禁止**跳过 TodoWrite
+- **禁止**再次 `merge=false` 清空八步列表
+- **禁止**因加强 AskQuestion、禁止 py 等其它约束而省略 TodoWrite（**并列，不替代**）
+- AskQuestion 阻塞时：当前 `step0N` 保持 `in_progress`
+
+---
 
 ## 执行迁移时
 
-1. **先** `TodoWrite` 创建 8 项任务（见 `SKILL.md`），再读 `references/workflow/INDEX.md`
-2. **按序**阅读并执行 `references/workflow/01-…md` 至 `08-…md`
+1. **先** TodoWrite 八步（上节）
+2. **再** `Read` `references/workflow/INDEX.md`，按序执行 `01-…md` 至 `08-…md`
 3. 用户指南见根目录 `README.md`
 
-## 硬性规定
+## 其它硬性规定
 
-- **必须 TodoWrite** 跟踪 01→08；禁止跳过或清空
 - **禁止**在用户环境新建/运行临时 `.py`（如 `_inspect_*.py`）；只能用 `scripts/**` 已有入口；脚本失败只汇报 + 按 workflow 续跑，禁止现场改 bug
 - 禁止让用户跑 python/pip；禁止索要成员名单；未指定周次时不询问
 - 部门表多组：姓名能**唯一**对应则不问组名；无法确定或子表 tab 多候选时**必须 AskQuestion**，**禁止猜**（见 `team-name-resolution.md` §1.1）
@@ -29,6 +49,7 @@ alwaysApply: false
 - 缺 wps365-read：检查 `vendor/wps365-read`；禁止让用户找目录
 - 缺 wps_sid：**必须 AskQuestion**（题干含 wps-sid-guide 步骤）→ 用户回复后 `setup_wps_sid.py` → 自动续跑；**禁止**仅用正文索要后结束回合
 - 缺 config 链接、缺子表/组名、写回确认：同样**必须 AskQuestion**，不得中断会话；**组内/部门链接分两次问**，禁止合并
+- **`need_dept_sheet`（preflight 退出码 4）**：`config.dept_sheet.sheet_name` 不在已下载 ksheet 子表列表 → AskQuestion 列出全部 tab 名；禁止写临时 `.py` 探测
 - **防误写**：仅百分百确定（子表精确唯一、组名唯一解析）时可不问；任一不确定则 AskQuestion，禁止模糊猜选后写回
 - 写回前必须完成步骤 6 用户确认；仅改指定周次内容列
 - 写回成功后默认清理 `.cache`；用户说「清理缓存」时同样仅清 `.cache`（不删 config / wps365-read 凭证）；用户说保留时用 `--keep-cache`

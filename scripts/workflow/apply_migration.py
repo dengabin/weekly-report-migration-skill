@@ -22,6 +22,33 @@ PATCH = SCRIPTS_ROOT / "patch"
 WORKFLOW = SCRIPTS_ROOT / "workflow"
 
 
+NEED_DEPT_SHEET = 4
+
+
+def validate_ksheet_dept_sheet(cfg: dict, ksheet_path: Path) -> tuple[bool, dict]:
+    from sheet_utils import list_ksheet_sheet_names, resolve_dept_sheet
+
+    names = list_ksheet_sheet_names(ksheet_path)
+    configured = (cfg.get("dept_sheet") or {}).get("sheet_name")
+    resolved, reason = resolve_dept_sheet(names, cfg)
+    ok = bool(resolved)
+    if configured and configured not in names:
+        ok = False
+        reason = (
+            f"config.dept_sheet.sheet_name={configured!r} 不在 ksheet 子表列表中"
+            "（可能已改名，须 AskQuestion 确认）"
+        )
+    payload = {
+        "ok": ok,
+        "all_sheets": names,
+        "resolved_sheet": resolved if ok else None,
+        "resolve_reason": reason,
+        "configured_sheet_name": configured,
+        "ksheet_file": ksheet_path.name,
+    }
+    return ok, payload
+
+
 def load_json_file(path: Path) -> dict:
     with path.open(encoding="utf-8") as f:
         return json.load(f)
@@ -165,6 +192,17 @@ def main() -> int:
     if not input_path or not input_path.exists():
         print("未找到部门 ksheet，请先运行 scripts/workflow/preflight.py", file=sys.stderr)
         return 1
+
+    if input_path.suffix.lower() == ".ksheet":
+        ok, sheet_check = validate_ksheet_dept_sheet(cfg, input_path)
+        if not ok:
+            print(json.dumps(sheet_check, ensure_ascii=False, indent=2), file=sys.stderr)
+            print(
+                "写回前子表校验失败：Agent 必须 AskQuestion，"
+                "根据 all_sheets 请用户确认正确 tab 名并更新 config.dept_sheet.sheet_name。",
+                file=sys.stderr,
+            )
+            return NEED_DEPT_SHEET
 
     week = cfg.get("week")
     if week and input_path.suffix.lower() == ".ksheet":

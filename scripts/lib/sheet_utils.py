@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import re
+import zipfile
+from pathlib import Path
 from typing import Any
 
 
@@ -42,6 +44,17 @@ def sheet_name_matches(name: str, pattern: str, mode: str = "contains") -> bool:
     if mode == "regex":
         return bool(re.search(pattern, name))
     return pat_n in name_n or name_n in pat_n
+
+
+def list_ksheet_sheet_names(ksheet_path: Path | str) -> list[str]:
+    """从已下载 .ksheet 的 workbook.xml 读取全部子表 tab 名（写回定位的权威来源）。"""
+    path = Path(ksheet_path)
+    with zipfile.ZipFile(path) as z:
+        wb = z.read("xl/workbook.xml").decode("utf-8")
+    names: list[str] = []
+    for m in re.finditer(r'<sheet[^>]+name="([^"]+)"', wb):
+        names.append(m.group(1))
+    return names
 
 
 def resolve_dept_sheet(sheet_names: list[str], cfg: dict) -> tuple[str | None, str]:

@@ -45,7 +45,7 @@ python scripts/workflow/run_preview.py
 
 **硬性规定**（详见 workflow）：
 
-- ⛔ **必须 TodoWrite**：迁移开始前创建 8 项任务，全程更新；与 AskQuestion、分两次问链接等约束**并列**，不得因加强一项而省略另一项
+- ⛔ **必须 TodoWrite（展示 workflow 01→08）**：迁移开始后**第一件事**建 `step01`…`step08` 八项并全程更新；详见 [TODO-TRACKING.md](references/workflow/TODO-TRACKING.md)。与 AskQuestion、禁止临时 py 等**并列**，**不得因改其它约束而删掉或省略**
 - ⛔ **禁止自编脚本**：不得在用户环境新建 `_inspect_*.py` 等临时 Python；只能 Shell 调用 `scripts/**` 与 `run_preview.py` / `apply_migration.py`；失败则读报告 JSON 汇报，**禁止现场改 bug**
 - ❌ **禁止**让用户自己运行 `python scripts/...`、pip、或任何终端命令
 - ❌ **禁止**让用户手动配置环境、下载/上传云文档、编辑 config
@@ -70,6 +70,7 @@ python scripts/workflow/run_preview.py
    | `need_wps365_read` | 检查 `vendor/wps365-read` 是否完整；仅当缺失时执行 `setup_wps365_read.py` |
    | `need_config` | **分两次** AskQuestion：先组内链接/正文 → 再部门链接（**禁止合并**；**不问成员、不问周次**）→ `build_config_from_extracted.py` |
    | `need_team_name` | `resolve_team_name.py` 退出码 3 → AskQuestion 要**组标题行组名** → `--team-name` 重跑；**禁止猜组** |
+   | `need_dept_sheet` | preflight 退出码 **4**：`config.dept_sheet.sheet_name` 不在**已下载 ksheet** 子表列表 → **必须 AskQuestion**（列出 `checks.dept_sheets.all_sheets` 全部 tab 名供选择；可能写错或 tab 已更新）→ 更新 config → 重跑 preflight → **自动续跑** |
    | `dept_read_failed` | 同 `need_wps_sid`：**必须 AskQuestion**（题干含 wps-sid-guide）→ `setup_wps_sid.py` → 重跑 preflight → **自动续跑**；**禁止**以「阻塞/等待」结束回合 |
 6. **不得**在 preflight `ready` 之前用 MCP `extract_yundoc_content` 读 ksheet。
 7. 小组 otl 若 preflight 未拉取，Agent 用 MCP 提取；**或**用户直接粘贴 Markdown → 写入 `.cache/team-report.md`，再 `extract_otl_weekly.py` → **`build_config_from_extracted.py` 自动填充 members** → **`resolve_team_name.py` 解析组名**（姓名能唯一对应同一组则不问用户；否则 AskQuestion 要组名，禁止猜组）。
@@ -128,9 +129,10 @@ Agent 会：读小组文档 → 自动解析成员 → 检查/插入部门表周
 
 ### 你会看到什么
 
-1. **子表解析结果**：例如 `resolved_sheet: "你的子表名"`，`resolve_reason: 子表名 contains 匹配`
-2. **迁移预览表**：成员 | 目标子表 | 单元格（如 `C5`）| 内容摘要
-3. **确认后**才写入；其它子表、其它组、其它周列**不会被改动**
+1. **八步进度（Todo）**：Agent 会创建「步骤1」～「步骤8」共八项任务，与 workflow 文档一一对应；每完成一步打勾，你能随时看到走到哪一步（**这是强制要求，不会省略**）。
+2. **子表解析结果**：例如 `resolved_sheet: "你的子表名"`，`resolve_reason: 子表名 contains 匹配`
+3. **迁移预览表**：成员 | 目标子表 | 单元格（如 `C5`）| 内容摘要
+4. **确认后**才写入；其它子表、其它组、其它周列**不会被改动**
 
 ---
 
@@ -193,40 +195,46 @@ Agent 会：读小组文档 → 自动解析成员 → 检查/插入部门表周
 
 **解析顺序**：`sheet_name` 精确命中 → `fourth_dept_name` + `aliases`（**须唯一**）→ `team_name` 在子表名中（**须唯一**）。**禁止**多候选时取第一个。
 
-步骤 2 必须先执行 `scripts/plan/list_dept_sheets.py` 或等价逻辑，**向用户展示** `resolved_sheet`；若未命中或**多个子表匹配**，**必须 AskQuestion** 请用户指定 `dept_sheet.sheet_name`。
+步骤 2 必须先执行 `scripts/plan/list_dept_sheets.py --input .cache/<部门表>.ksheet`（或 xlsx）或读取 preflight 报告，**向用户展示** `all_sheets` / `resolved_sheet`；若未命中、**config 子表名不在列表中**或**多个子表匹配**，**必须 AskQuestion** 请用户指定 `dept_sheet.sheet_name`。
 
 定位规则语法见 [references/mapping-rules.md](references/mapping-rules.md)。
 
 ## 工作流（必须按序执行）
 
-### ⛔ Agent 必须用 TodoWrite 跟踪进度
+### ⛔ Agent 必须用 TodoWrite 展示 workflow 01→08（强制，不可省略）
 
-**执行迁移时**，Agent 在开始第一步之前**必须**调用 `TodoWrite` 创建如下任务列表（第一项标记为 `in_progress`）。
-每完成一步立即将该步标记为 `completed`、下一步标记为 `in_progress`。
-遇到阻塞（如缺 wps_sid、需要用户选组名）时，当前步骤保持 `in_progress` 直到解决。
+> **单一事实来源**：[references/workflow/TODO-TRACKING.md](references/workflow/TODO-TRACKING.md)  
+> **维护约定**：编辑本文或任意 workflow 文档时，**不得删除或弱化** TodoWrite 要求；新增其它约束须**并列**写入，**禁止互相替代**。
+
+**执行迁移时**，在用户说「周报迁移」后、跑任何脚本**之前**，**第一件事**必须是 `TodoWrite` 创建下列 **8 项**（对应 workflow 步骤 1→8）。用户靠 Todo 面板看流程走到哪一步。
+
+- **仅首次** `merge=false` 创建八项；之后**只用** `merge=true` 更新 `status`
+- 每完成一个 workflow 步骤：`completed` + 下一步 `in_progress`
+- AskQuestion 阻塞时：当前 `step0N` 保持 `in_progress`，**禁止**清空列表或结束回合
 
 ```
-TodoWrite 初始化内容（merge=false）：
-
-id: preflight    | 环境预检（依赖 / WPS_SID / wps365-read / 下载部门表）        | in_progress
-id: config       | 加载配置，收集缺失的文档链接                                  | pending
-id: extract      | 提取组内周报（extract_otl_weekly → extracted.json）            | pending
-id: resolve      | 解析组名与成员定位（resolve_team_name）                        | pending
-id: week_column  | 检查/插入部门表周列（ensure_week_column）                      | pending
-id: plan         | 生成迁移计划，展示预览，等用户确认                              | pending
-id: write        | 执行局部写入（patch → upload）                                 | pending
-id: verify       | 校验写入结果并汇报                                              | pending
-```
-
-示例：预检完成后，Agent 应发出：
-```
-TodoWrite(merge=true, todos=[
-  {id: "preflight", status: "completed"},
-  {id: "config",    status: "in_progress"}
+TodoWrite(merge=false, todos=[
+  { id: "step01", content: "步骤1：原则与用户边界",     status: "in_progress" },
+  { id: "step02", content: "步骤2：首次配置与文档链接", status: "pending" },
+  { id: "step03", content: "步骤3：环境预检与凭证",     status: "pending" },
+  { id: "step04", content: "步骤4：周次解析与部门列",   status: "pending" },
+  { id: "step05", content: "步骤5：提取成员与生成计划", status: "pending" },
+  { id: "step06", content: "步骤6：预览与用户确认",     status: "pending" },
+  { id: "step07", content: "步骤7：写回与格式约束",     status: "pending" },
+  { id: "step08", content: "步骤8：校验与汇报",         status: "pending" }
 ])
 ```
 
-**不要跳过 TodoWrite**。用户靠它看流程走到了哪一步。
+读完 `01-原则与用户边界.md` 后示例：
+
+```
+TodoWrite(merge=true, todos=[
+  { id: "step01", status: "completed" },
+  { id: "step02", status: "in_progress" }
+])
+```
+
+**不要跳过 TodoWrite**。**禁止**再次 `merge=false` 清空八步列表。
 
 ### 步骤 -1：自动预检（执行迁移时）
 
@@ -244,7 +252,7 @@ python scripts/workflow/preflight.py
 | wps365-read | 使用内置 `vendor/wps365-read/`（clone 即有） |
 | WPS_SID | `assets/config/auth.yaml` 或环境变量 |
 | 部门表可读 | `get-file-content` 拉取 ksheet → `.cache/dept-report.md` |
-| 子表解析 | 列出全部 sheet，匹配 `dept_sheet` → `resolved_sheet` |
+| 子表解析 | 下载 ksheet 后从 `workbook.xml` 读取**真实** tab 名；与 `dept_sheet` 匹配 → `resolved_sheet`（KDC 列表仅参考，可能滞后） |
 | 小组 otl | 拉取到 `.cache/team-report.md` |
 | 部门表下载 | `download` 到 `.cache/`（供后续 update 回写） |
 
@@ -281,8 +289,8 @@ python scripts/workflow/run_preview.py
 
 **表格（`.ksheet` / `.xlsx` / `.et`）— 推荐流程（多子表）**
 
-1. 使用 preflight 已生成的 `.cache/dept-report.md` 与 `preflight-report.json` 中的 `resolved_sheet`。
-2. 若子表未命中，根据 `all_sheets` 列表请用户指定 `dept_sheet.sheet_name` 后重跑 preflight。
+1. 使用 preflight 已生成的 `.cache/dept-report.md` 与 `preflight-report.json` 中的 `resolved_sheet`（**以 `checks.dept_sheets.source=ksheet_zip` 的 `all_sheets` 为准**）。
+2. 若 `status: need_dept_sheet` 或子表未命中：**必须 AskQuestion**，根据 `all_sheets` 列出全部 tab 名请用户指定 `dept_sheet.sheet_name`（可能写错或 tab 已更新），**禁止**自建临时 `.py` 探测；更新 config 后重跑 preflight。
 3. 若部门表无本周列，`run_preview` 会自动调用 `ensure_week_column.py` 插入列；生成补丁计划（插入列后优先读本地 ksheet）：  
    `python scripts/plan/plan_sheet_patches.py --config config.json --dept-ksheet .cache/<部门表>.ksheet --extracted .cache/extracted.json --output .cache/patch-plan.json`
 4. 或使用一键：`python scripts/workflow/run_preview.py`

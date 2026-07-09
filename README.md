@@ -151,9 +151,13 @@ https://github.com/dengabin/weekly-report-migration-skill
 
 ### 1. 触发
 
+在 Cursor 对话中说：
+
 ```
 周报迁移
 ```
+
+Agent 会立刻在侧边 **Todo** 面板创建 **步骤1～步骤8** 共八项（与 workflow 文档一一对应），每完成一步打勾，方便你看清进度。**这是强制流程展示，不会省略。**
 
 ### 2. 提供文档（仅首次无 config 时）
 

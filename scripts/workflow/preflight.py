@@ -16,10 +16,11 @@ from wps365_bridge import (  # noqa: E402
     resolve_wps_sid,
     run_drive,
 )
-from paths import SKILL_ROOT  # noqa: E402
+from paths import SKILL_ROOT, find_dept_ksheet  # noqa: E402
 from subprocess_utils import configure_stdio  # noqa: E402
 
 NEED_SID = 2
+NEED_DEPT_SHEET = 4
 FAIL = 1
 OK = 0
 
@@ -166,13 +167,12 @@ def main() -> int:
         if data.get("content"):
             markdown_path.write_text(data["content"], encoding="utf-8")
 
-        sheet_names = extract_sheet_names_from_content_json(data)
-        resolved, reason = resolve_sheet_name(sheet_names, cfg)
-        report["checks"]["dept_sheets"] = {
-            "ok": bool(resolved),
-            "all_sheets": sheet_names,
-            "resolved_sheet": resolved,
-            "resolve_reason": reason,
+        sheet_names_kdc = extract_sheet_names_from_content_json(data)
+        report["checks"]["dept_sheets_kdc"] = {
+            "ok": True,
+            "all_sheets": sheet_names_kdc,
+            "source": "kdc_api",
+            "note": "仅供参考；子表 tab 以已下载 ksheet 的 workbook.xml 为准",
         }
 
         if not args.skip_download:
@@ -181,6 +181,49 @@ def main() -> int:
                 "ok": dl.returncode == 0,
                 "dir": str(cache),
                 "message": (dl.stdout or dl.stderr or "")[:500],
+            }
+
+        ksheet_path = find_dept_ksheet(cache, cfg)
+        if ksheet_path and ksheet_path.exists():
+            from sheet_utils import list_ksheet_sheet_names
+
+            sheet_names = list_ksheet_sheet_names(ksheet_path)
+            resolved, reason = resolve_sheet_name(sheet_names, cfg)
+            configured = (cfg.get("dept_sheet") or {}).get("sheet_name")
+            dept_ok = bool(resolved)
+            if configured and configured not in sheet_names:
+                dept_ok = False
+                reason = (
+                    f"config.dept_sheet.sheet_name={configured!r} 不在已下载 ksheet 子表列表中"
+                    "（子表 tab 可能已改名，请 AskQuestion 让用户从列表中选择正确名称）"
+                )
+            report["checks"]["dept_sheets"] = {
+                "ok": dept_ok,
+                "all_sheets": sheet_names,
+                "resolved_sheet": resolved if dept_ok else None,
+                "resolve_reason": reason,
+                "source": "ksheet_zip",
+                "ksheet_file": ksheet_path.name,
+            }
+            if sheet_names_kdc and sheet_names_kdc != sheet_names:
+                report["checks"]["dept_sheets"]["kdc_all_sheets"] = sheet_names_kdc
+                report["checks"]["dept_sheets"]["kdc_stale"] = True
+            if configured and configured not in sheet_names:
+                report["status"] = "need_dept_sheet"
+                report["hint"] = (
+                    f"config 中子表名 {configured!r} 与云端 ksheet 不一致。"
+                    "Agent 必须 AskQuestion：列出 all_sheets 请用户确认正确 tab 名，"
+                    "更新 config.dept_sheet.sheet_name 后重跑 preflight。"
+                )
+        else:
+            resolved, reason = resolve_sheet_name(sheet_names_kdc, cfg)
+            report["checks"]["dept_sheets"] = {
+                "ok": bool(resolved),
+                "all_sheets": sheet_names_kdc,
+                "resolved_sheet": resolved,
+                "resolve_reason": reason,
+                "source": "kdc_api",
+                "warning": "未下载到本地 ksheet，子表列表可能滞后",
             }
 
     team = cfg.get("team_report") or {}
@@ -197,15 +240,18 @@ def main() -> int:
         for k, c in report["checks"].items()
         if k in ("python_deps", "wps365_read", "wps_sid", "dept_read", "dept_sheets")
     )
-    report["status"] = "ready" if all_ok else "partial"
+    if report.get("status") != "need_dept_sheet":
+        report["status"] = "ready" if all_ok else "partial"
     report["next_steps"] = []
-    if all_ok:
+    if all_ok and report.get("status") == "ready":
         report["next_steps"] = [
             "python scripts/extract/extract_otl_weekly.py --markdown .cache/team-report.md",
             "python scripts/plan/plan_sheet_patches.py --config config.json --dept-kdc-json .cache/dept-content.json --extracted .cache/extracted.json",
         ]
     _write_report(args.output, report)
     print(json.dumps(report, ensure_ascii=False, indent=2))
+    if report.get("status") == "need_dept_sheet":
+        return NEED_DEPT_SHEET
     return OK if all_ok else FAIL
 
 

@@ -41,6 +41,17 @@ def main() -> int:
     if code == 2:
         print("\n需要 WPS_SID：请运行 python scripts/workflow/setup_wps_sid.py <你的wps_sid>", file=sys.stderr)
         return code
+    if code == 4:
+        report_path = CACHE / "preflight-report.json"
+        if report_path.exists():
+            print(report_path.read_text(encoding="utf-8"))
+        print(
+            "\n子表 tab 名与 config 不一致：Agent 必须 AskQuestion，"
+            "根据 preflight-report.json 中 checks.dept_sheets.all_sheets 请用户确认正确名称，"
+            "更新 config.dept_sheet.sheet_name 后重跑。",
+            file=sys.stderr,
+        )
+        return code
     if code != 0:
         report_path = CACHE / "preflight-report.json"
         if report_path.exists():

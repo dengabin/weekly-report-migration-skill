@@ -132,11 +132,9 @@ def plan_from_rows(cfg: dict, extracted: dict, rows: list, resolved: str, reason
 
 
 def plan_from_ksheet(cfg: dict, extracted: dict, ksheet_path: Path) -> dict:
-    from zipfile import ZipFile
+    from sheet_utils import list_ksheet_sheet_names
 
-    with ZipFile(ksheet_path) as zin:
-        wb_xml = zin.read("xl/workbook.xml").decode("utf-8")
-    sheet_names = re.findall(r'name="([^"]+)"', wb_xml)
+    sheet_names = list_ksheet_sheet_names(ksheet_path)
     resolved, reason = resolve_dept_sheet(sheet_names, cfg)
     if not resolved:
         return {"week": cfg.get("week"), "resolved_sheet": None, "resolve_reason": reason, "patches": []}

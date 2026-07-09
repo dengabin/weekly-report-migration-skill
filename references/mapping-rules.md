@@ -77,7 +77,8 @@
 ### 发现子表命令
 
 ```bash
-python scripts/plan/list_dept_sheets.py --config config.json --input .cache/dept-report.xlsx
+python scripts/plan/list_dept_sheets.py --config config.json --input .cache/<部门表>.ksheet
+# 或本地 xlsx：--input .cache/dept-report.xlsx
 ```
 
 输出示例：
