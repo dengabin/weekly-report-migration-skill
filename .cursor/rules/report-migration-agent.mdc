@@ -10,8 +10,9 @@ alwaysApply: false
 
 | 用户说 | 做什么 |
 |--------|--------|
-| 「加载 / 安装 skill」 | 确认目录或复制到 `~/.cursor/skills/` → **结束，不要问链接** |
-| 「周报迁移」等触发词 | **先 TodoWrite 八步** → 读 workflow INDEX → 步骤 1→8 |
+| 「加载 / 安装 skill」+ **粘贴 Skill 目录路径** | Read `{路径}/references/load-in-other-project.md` → 执行 `install_to_project.ps1` 配置当前项目的 Rule → **结束** |
+| 「加载 / 安装 skill」（无路径，且工作区即 Skill 仓库） | 确认就绪 → **结束** |
+| 「周报迁移」等触发词 | **先 TodoWrite 八步** → Read SKILL_ROOT 下 workflow → 步骤 1→8 |
 
 ---
 

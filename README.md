@@ -10,16 +10,19 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  第一次                                                     │
-│  1. 打开本仓库目录 → 对 Agent 说「加载 skill」               │
-│  2. 对 Agent 说「周报迁移」                                  │
-│  3. 按提示分两次给：先组内 otl 链接，再部门 ksheet 链接（每次只贴一个） │
-│  4. 若缺凭证：按提示粘贴 wps_sid（仅首次或过期时）           │
-│  5. 看预览 → 回复「确认」→ Ctrl+F5 刷新部门表               │
+│  第一次（在业务项目里）                                       │
+│  1. git clone 本仓库到本机任意目录                           │
+│  2. 打开你的业务项目 → 对 Agent 说：                          │
+│     「加载这个 skill：<clone 出来的目录>」                    │
+│     （Agent 自动写好 .cursor/rules/，无需手拷文件）           │
+│  3. 对 Agent 说「周报迁移」                                  │
+│  4. 按提示分两次给：先组内 otl 链接，再部门 ksheet 链接       │
+│  5. 若缺凭证：按提示粘贴 wps_sid（仅首次或过期时）           │
+│  6. 看预览 → 回复「确认」→ Ctrl+F5 刷新部门表               │
 ├─────────────────────────────────────────────────────────────┤
-│  以后每周                                                   │
+│  以后每周（仍在业务项目里）                                   │
 │  组内 otl 写完后，只说：「周报迁移」                         │
-│  （链接和凭证已保存，一般不再重复问）                        │
+│  （链接和凭证保存在 Skill 目录，一般不再重复问）              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -31,10 +34,11 @@
 
 | 你说 | Agent 做什么 | 会不会要文档链接 |
 |------|--------------|------------------|
-| **加载 skill** / 安装 skill / 打开这个目录 | 确认 Skill 就绪，简单介绍能力 | **不会** |
+| **加载这个 skill：**`d:\...\report-migration`（在业务项目里） | 自动配置 `.cursor/rules/`，简述能力 | **不会** |
+| **加载 skill**（已打开 Skill 开发仓库） | 确认就绪 | **不会** |
 | **周报迁移** / 填部门周报 / 同步周报 | 完整迁移流程：预检 → 提取 → 预览 → 写回 | 首次会要（见下） |
 
-> 只说「加载 skill」时，Agent **不会**开始迁移，也**不会**向你要 otl / 部门表链接。  
+> 在业务项目里：**贴 Skill 目录路径 + 说加载**，Agent 会帮你写好 Rule，无需手拷文件。  
 > 准备好迁移了，再说 **「周报迁移」**。
 
 ---
@@ -113,37 +117,46 @@ https://365.kdocs.cn/l/你的组内otl链接ID
 1. **Cursor**（已登录）
 2. **Python 3.10+**（本机有即可，不用自己运行）
 3. 对组内 **otl**、部门 **ksheet** 有读/写权限
-4. 本仓库已 `git clone`（内置 `vendor/wps365-read`，无需另装）
+4. 本仓库已 `git clone` 到本机（内置 `vendor/wps365-read`，无需另装）
+5. **业务项目**已让 Agent 执行过「加载 skill + 路径」（见下一步）；或你正在打开 Skill 开发仓库自测
 
 ---
 
-## 第一步：把 Skill 交给 Agent
+## 第一步：在业务项目里启用
 
-任选一种方式，**在对话里说**，不必手动复制文件夹。
-
-### 方式 A：打开目录当工作区（推荐）
-
-1. Cursor **文件 → 打开文件夹** → 选本仓库目录  
-2. 对 Agent 说：`加载这个 skill`  
-3. 要迁移时说：`周报迁移`
-
-### 方式 B：让 Agent 从零 clone 安装
+在**你的业务项目**打开 Cursor，粘贴 Skill 目录并说：
 
 ```
-请从 GitHub 安装周报迁移 Skill：
-https://github.com/dengabin/weekly-report-migration-skill
-克隆到 ~/.cursor/skills/weekly-report-migration/
+加载这个 skill：d:\branch\skills\report-migration
 ```
 
-装完后说 `周报迁移` 即可。
+Agent 会 Read 安装文档并**自动**在当前项目创建 `.cursor/rules/weekly-report-migration.mdc`（无需你手跑命令）。
 
-### 方式 C：本地已有目录
+若要 **设置页 / `/` 菜单** 也出现，加上「要 / 菜单」。
+
+详见 [references/load-in-other-project.md](references/load-in-other-project.md)。
+
+### 方式 A：贴路径 +「加载 skill」（推荐）
+
+Agent 自动配置指针 Rule；迁移时说「**周报迁移**」。
+
+### 方式 B：需要 `/` 菜单时
 
 ```
-请把 D:\path\to\weekly-report-migration-skill 安装为 Cursor 个人 Skill
+加载这个 skill：d:\branch\skills\report-migration，要 / 菜单
 ```
 
-> 不要放到 `~/.cursor/skills-cursor/`（Cursor 内置目录）。
+### 方式 C：打开 Skill 开发仓库当工作区
+
+改 Skill 代码、自测；仅在该仓库内生效。对 Agent 说「加载 skill」即可，**不必**跑 `install_to_project.ps1`。
+
+### 方式 D：手动安装（Agent 不可用时）
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "<SKILL_ROOT>/scripts/workflow/install_to_project.ps1" -SkillRoot "<SKILL_ROOT>" -TargetProject "D:\your-app"
+```
+
+加 `-WithSkillMenu` 可同时注册 `/` 菜单。详见 [references/install-project-skill.md](references/install-project-skill.md)。
 
 ---
 
@@ -233,7 +246,9 @@ Agent：已写回，请 Ctrl+F5 刷新部门表
 
 | 场景 | 你说 |
 |------|------|
-| 仅安装 / 识别 Skill | `加载 skill` |
+| 在业务项目首次启用 | `加载这个 skill：d:\path\to\report-migration` |
+| 要设置页 / `/` 菜单 | 同上句末加 `，要 / 菜单` |
+| 仅开发 Skill 仓库内 | `加载 skill` |
 | 迁移最新一周 | `周报迁移` |
 | 迁移日历上周 | `迁移上周周报` |
 | 迁移日历上上周 | `周报迁移，上上周` |
@@ -261,7 +276,7 @@ Agent：已写回，请 Ctrl+F5 刷新部门表
 
 写回成功后默认清空 `.cache/`（中间文件）。**下次迁移会重新从云端拉**组内 otl 与部门表，不靠上次 `.cache`。
 
-`config.json` 会保留文档链接与 `wps_sid` 凭证；**组名每次迁移会自动按最新部门表重算**，部门调整组标题后一般**不用**重新要链接。只有自动无法判断组时才再问你组名。若换了部门文档，说「**更新周报迁移的文档链接**」。
+`config.json`、`wps_sid` 写在 **Skill 目录（SKILL_ROOT）** 内，不在业务项目根目录。会保留文档链接与凭证；**组名每次迁移会自动按最新部门表重算**。若换了部门文档，说「**更新周报迁移的文档链接**」。
 
 ### `wps_sid` 会过期
 
@@ -273,9 +288,10 @@ Agent：已写回，请 Ctrl+F5 刷新部门表
 
 | 现象 | 怎么办 |
 |------|--------|
-| 不知道从哪开始 | 先说「加载 skill」→ 再说「周报迁移」 |
+| 不知道从哪开始 | 业务项目里：`加载这个 skill：<路径>` → `周报迁移` |
 | 说「加载」却开始要链接 | 回复：「我只是加载 skill，还没要迁移」 |
-| `@` 里搜不到 Skill | 直接说「周报迁移」即可 |
+| `@` / `/` 里搜不到 Skill | **正常**（默认指针 Rule 无 `/` 菜单）；说「周报迁移」或 @weekly-report-migration。要菜单则加载时加「要 / 菜单」 |
+| 设置里看不到 Skill | 同上；或加载时加「要 / 菜单」 |
 | 「上周」迁错了周 | 确认你说的是「日历上周」；otl 上一期 ≠ 日历上周（见上文） |
 | 部门调整了组名 / 组织 | 一般不用重做：下次迁移会重拉部门表并自动更新 `team_name`；无法判断时才再问组名 |
 | 换了部门文档或子表 | 说「更新周报迁移的文档链接」，或删除 `config.json` 后重来 |
@@ -309,7 +325,10 @@ Agent：已写回，请 Ctrl+F5 刷新部门表
 
 | 资源 | 说明 |
 |------|------|
+| [LOAD.md](LOAD.md) | **贴路径 +「加载 skill」**时 Agent 入口（用户也可先 @ 本文件） |
 | [SKILL.md](SKILL.md) | Agent 技术入口（用户无需阅读） |
+| [references/load-in-other-project.md](references/load-in-other-project.md) | Agent 自动配置业务项目 Rule 的完整手册 |
+| [references/install-project-skill.md](references/install-project-skill.md) | Rule / Skill 机制对比与手动安装 |
 | [references/wps-sid-guide.md](references/wps-sid-guide.md) | 获取 wps_sid |
 | [references/week-resolution.md](references/week-resolution.md) | 周次与「上周」规则（技术细节） |
 | [references/team-name-resolution.md](references/team-name-resolution.md) | 多组部门表与组名识别 |
@@ -321,7 +340,7 @@ Agent：已写回，请 Ctrl+F5 刷新部门表
 ## 快速检查清单
 
 - [ ] Cursor Agent 对话已打开  
-- [ ] 已打开本仓库目录，或已让 Agent 安装 Skill  
+- [ ] 业务项目已对 Agent 说「加载这个 skill：<路径>」，或已打开 Skill 开发仓库
 - [ ] 组内 otl、部门 ksheet 链接已备好（或准备粘贴 otl 正文）  
 - [ ] 对两个文档有读/写权限  
 - [ ] 组内 otl 已按 `# 日期` + `## 姓名` 写好目标周内容  

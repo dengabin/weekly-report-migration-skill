@@ -1,7 +1,8 @@
 # Agent 执行索引（按序阅读，不可跳步）
 
 > **仅当用户要执行迁移**（如「周报迁移」）时，才按下列顺序阅读并执行。  
-> 用户只说「加载 / 安装 skill」时：**不要**进入本索引，见 [01-原则与用户边界.md](01-原则与用户边界.md) §1.0。
+> 用户说「加载 / 安装 skill」+ 粘贴路径时：Read [load-in-other-project.md](../load-in-other-project.md)，**不要**进入本索引。  
+> 用户在 Skill 开发仓库内仅说「加载 skill」时：见 [01-原则与用户边界.md](01-原则与用户边界.md) §1.0。
 
 | 步骤 | 文档 | 何时执行 |
 |------|------|----------|
@@ -23,6 +24,8 @@
 4. **只能用 Skill 已有脚本**：禁止在用户目录新建 `_inspect_*.py` 等临时文件排查；失败时读 `.cache/*-report.json` 并按 workflow 处理。见 [01-原则与用户边界.md](01-原则与用户边界.md) §1.4。
 5. **防误写（定位确定性）**：子表 tab / 页内组名**仅百分百确定**时可不问用户；任一多候选或 `ambiguous` → **必须 AskQuestion**，禁止模糊猜选。见 [team-name-resolution.md](../team-name-resolution.md) §1.1。
 6. 技术细节延伸阅读（非逐步必读）：  
+   - [../load-in-other-project.md](../load-in-other-project.md)（业务项目加载 Skill）  
+   - [../install-project-skill.md](../install-project-skill.md)（Rule / Skill 机制）  
    - [../wps-sid-guide.md](../wps-sid-guide.md)  
    - [../week-resolution.md](../week-resolution.md)  
    - [../ksheet-mcp-limitation.md](../ksheet-mcp-limitation.md)  
@@ -34,7 +37,8 @@
 
 | 阶段 | Agent 执行的命令 |
 |------|------------------|
-| 步骤 3 | `pip install -r requirements.txt` → `python scripts/workflow/preflight.py` |
+| 加载到业务项目 | `install_to_project.ps1`（用户说「加载 skill + 路径」时，**cwd** 任意，见 load-in-other-project.md） |
+| 步骤 3 | `pip install -r requirements.txt` → `python scripts/workflow/preflight.py`（**cwd = SKILL_ROOT**） |
 | 步骤 5 | `python scripts/workflow/run_preview.py`（preflight → extract → build_config → resolve_team → ensure_week → format → plan） |
 | 步骤 7 | `python scripts/workflow/apply_migration.py --upload`（format → ensure_week → plan → patch → upload） |
 | 步骤 8 | 写回成功后自动 `cleanup_cache.py`（用户未要求保留时） |

@@ -5,7 +5,7 @@ description: >-
   仅修改目标单元格/段落，不重写整份文档。Agent 必读 references/workflow/INDEX.md 按步骤1-8执行。
   用户指南见 README.md。支持金山文档（kdocs.cn）智能文档 .otl、表格 .xlsx/.et、文字 .docx。
   触发词：周报迁移、填部门周报、同步周报、weekly report migration、复制周报到部门、周报汇总。
-  注意：用户仅说「加载/安装 skill」时不要执行迁移、不要索要文档链接。
+  注意：用户仅说「加载/安装 skill」时不要执行迁移、不要索要文档链接；若用户粘贴 Skill 目录路径则 Read references/load-in-other-project.md 并执行 install_to_project.ps1。
 disable-model-invocation: true
 ---
 
@@ -15,12 +15,24 @@ disable-model-invocation: true
 
 | 用户意图 | 典型说法 | Agent 做什么 | **禁止** |
 |----------|----------|--------------|----------|
-| **A. 安装 / 识别 Skill** | 「加载这个 skill」「安装 skill」「打开这个目录」 | 确认目录含 `SKILL.md`；可选复制到 `~/.cursor/skills/`；简短说明能力 | ❌ 不跑 preflight；❌ 不 AskQuestion 要文档链接；❌ 不 pip install |
-| **B. 执行周报迁移** | 「周报迁移」「填部门周报」「同步周报」 | 读 workflow 1→8 → 预检 → 缺 config 时才问链接 | — |
+| **A. 安装 / 识别 Skill** | 「加载这个 skill」+ **粘贴目录路径**；或在本 Skill 仓库内说「加载 skill」 | **在其它项目**：Read [load-in-other-project.md](references/load-in-other-project.md) → 执行 `install_to_project.ps1` 配置 Rule（**Agent 自动跑**）→ 简短汇报。**在本仓库内**：确认就绪即可 | ❌ 不跑 preflight；❌ 不 AskQuestion 要文档链接；❌ 不 pip install |
+| **B. 执行周报迁移** | 「周报迁移」「填部门周报」「同步周报」 | 若已装指针 Rule：Read `SKILL.md`（SKILL_ROOT）→ workflow 1→8 → 预检 → 缺 config 时才问链接 | — |
 
-**只有场景 B 才进入下方迁移流程。** 场景 A 结束时回复一句即可，例如：
+**只有场景 B 才进入下方迁移流程。**
 
-> Skill 已就绪。需要迁移时说「**周报迁移**」，届时再提供组内/部门文档链接。
+### 场景 A 补充：用户在其它项目粘贴路径
+
+```
+加载这个 skill：d:\branch\skills\report-migration
+```
+
+1. Read [references/load-in-other-project.md](references/load-in-other-project.md)
+2. Shell：`powershell -ExecutionPolicy Bypass -File "<SKILL_ROOT>/scripts/workflow/install_to_project.ps1" -SkillRoot "<SKILL_ROOT>" -TargetProject "<当前工作区根>"`
+3. 回复安装结果；若用户同句含「周报迁移」，安装完成后**立即进入场景 B**
+
+场景 A 结束时回复示例：
+
+> Skill 已配置到当前项目（指针 Rule）。需要迁移时说「**周报迁移**」。
 
 ---
 
@@ -100,10 +112,15 @@ python scripts/workflow/preflight.py
 
 ### 一次性准备（用户零命令）
 
-1. 若本地无 `config.json`，Agent **分两次** AskQuestion 各收一个文档链接并写入 config（见 workflow 步骤 2）。
-2. 用户只说 **「周报迁移」**。
-3. Agent 自动跑完全部脚本；**仅当缺 `wps_sid`** 时，通过 **AskQuestion** 收集 Cookie 值（题干含 wps-sid-guide 步骤；不是让用户跑脚本）。
-4. 用户回复后 Agent 自动配置、预检、预览；写回前通过 **AskQuestion** 确认。
+**在业务项目里**（非 Skill 开发仓库时）：
+
+1. 对 Agent 说：`加载这个 skill：<本仓库 clone 路径>`（Agent 自动配置 `.cursor/rules/`，见 [load-in-other-project.md](references/load-in-other-project.md)）
+2. 若无 `config.json`（在 SKILL_ROOT 内），Agent **分两次** AskQuestion 收文档链接（见 workflow 步骤 2）
+3. 用户说 **「周报迁移」**
+4. Agent 自动跑脚本；缺 `wps_sid` 时 **AskQuestion** 收集 Cookie
+5. 写回前 **AskQuestion** 确认
+
+**在 Skill 开发仓库内**：跳过第 1 步，直接「周报迁移」或「加载 skill」确认即可。
 
 ### 每周使用（用户一句话即可）
 

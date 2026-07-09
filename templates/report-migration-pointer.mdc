@@ -1,0 +1,40 @@
+---
+description: >-
+  周报迁移：用户说「周报迁移」「填部门周报」「同步周报」或 @本规则 时，
+  读取外部 Skill 目录并执行 workflow 01→08。SKILL 根目录见下文 SKILL_ROOT。
+alwaysApply: false
+---
+
+# 周报迁移（外部 Skill 指针）
+
+> 本文件是**薄规则**，不复制 Skill 本体。把本模板拷到业务项目的 `.cursor/rules/` 即可。
+
+## SKILL_ROOT（按本机修改）
+
+```
+{{SKILL_ROOT}}
+```
+
+`config.json`、`wps_sid`、`.cache/` 均写在 **SKILL_ROOT** 下，不污染当前业务项目。
+
+## 触发条件（满足任一即执行）
+
+- 用户说：**周报迁移**、填部门周报、同步周报、迁移上周周报、weekly report migration
+- 用户 **@** 本规则
+- 用户说：使用周报迁移 skill / 执行周报迁移
+
+**仅说「加载 skill」且未触发迁移** → 不执行下方步骤；若用户在同一句提供了 Skill 目录路径，改按 `{SKILL_ROOT}/references/load-in-other-project.md` 安装 Rule。
+
+## 执行步骤（Agent 必须遵守）
+
+1. **TodoWrite** 八步 `step01`…`step08`（定义见 `{SKILL_ROOT}/references/workflow/TODO-TRACKING.md`）
+2. **Read** `{SKILL_ROOT}/SKILL.md`
+3. **Read** `{SKILL_ROOT}/references/workflow/INDEX.md`，按 01→08 执行
+4. 所有 Shell 命令 **`cwd` = SKILL_ROOT**；只调用 `{SKILL_ROOT}/scripts/**`，禁止新建临时 `.py`
+5. 约束以 SKILL.md 与 `{SKILL_ROOT}/.cursor/rules/report-migration-agent.mdc` 为准
+
+## 不要做的事
+
+- ❌ 不要把 Skill 复制进业务项目（除非你还想要 `/` 菜单入口）
+- ❌ 不要在业务项目根目录找 `config.json`（在 SKILL_ROOT）
+- ❌ 不要因本规则已加载而跳过 Read SKILL.md
