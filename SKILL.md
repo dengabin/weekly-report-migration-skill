@@ -56,7 +56,7 @@ python scripts/workflow/run_preview.py
 流程：
 
 1. **静默执行** `pip install -r requirements.txt`（若缺依赖）→ `python scripts/workflow/preflight.py` → 读 `.cache/preflight-report.json`
-2. 若 `config.json` 缺文档链接 → **AskQuestion** 依次收集：组内周报链接 → 部门周报链接（**不问成员**）→ Agent 写入 config
+2. 若 `config.json` 缺文档链接 → **分两次 AskQuestion**：先仅要组内周报链接（或 otl 正文）→ 写入后 → 再仅要部门周报链接（**禁止**一题合并两个链接；**不问成员**）→ Agent 写入 config
 3. **解析周次**（见 [week-resolution.md](references/week-resolution.md)）：用户未指定则用 otl 最新周；「上周」等按**系统日历**计算，再在 otl 中匹配对应日期区块（不是 otl 里的上一期）
 4. **检查部门表是否有本周列**：无列则先插入再迁移；有列则仅覆盖该列
 5. 根据 `status` 分支：
@@ -66,7 +66,7 @@ python scripts/workflow/run_preview.py
    | `need_wps_sid` | 简短说明 → **必须 AskQuestion**（题干含 wps-sid-guide 步骤）→ 用户粘贴后 Agent 执行 `setup_wps_sid.py` → 重跑 preflight → **自动续跑** run_preview，**禁止**以「阻塞/等待」结束回合 |
    | `need_deps` | Agent 执行 `pip install -r requirements.txt` → 重跑 preflight |
    | `need_wps365_read` | 检查 `vendor/wps365-read` 是否完整；仅当缺失时执行 `setup_wps365_read.py` |
-   | `need_config` | AskQuestion 收集组内/部门文档链接（**不问成员、不问周次**）→ `build_config_from_extracted.py` |
+   | `need_config` | **分两次** AskQuestion：先组内链接/正文 → 再部门链接（**禁止合并**；**不问成员、不问周次**）→ `build_config_from_extracted.py` |
    | `need_team_name` | `resolve_team_name.py` 退出码 3 → AskQuestion 要**组标题行组名** → `--team-name` 重跑；**禁止猜组** |
    | `dept_read_failed` | 同 `need_wps_sid`：**必须 AskQuestion**（题干含 wps-sid-guide）→ `setup_wps_sid.py` → 重跑 preflight → **自动续跑**；**禁止**以「阻塞/等待」结束回合 |
 6. **不得**在 preflight `ready` 之前用 MCP `extract_yundoc_content` 读 ksheet。
@@ -97,7 +97,7 @@ python scripts/workflow/preflight.py
 
 ### 一次性准备（用户零命令）
 
-1. 若本地无 `config.json`，Agent 用 AskQuestion 收集文档链接并写入 config（见 workflow 步骤 2）。
+1. 若本地无 `config.json`，Agent **分两次** AskQuestion 各收一个文档链接并写入 config（见 workflow 步骤 2）。
 2. 用户只说 **「周报迁移」**。
 3. Agent 自动跑完全部脚本；**仅当缺 `wps_sid`** 时，通过 **AskQuestion** 收集 Cookie 值（题干含 wps-sid-guide 步骤；不是让用户跑脚本）。
 4. 用户回复后 Agent 自动配置、预检、预览；写回前通过 **AskQuestion** 确认。
@@ -256,7 +256,7 @@ python scripts/workflow/run_preview.py
 
 ### 步骤 0：加载配置
 
-1. 读取 `config.json`；缺失文档链接 → AskQuestion 收集链接（**不问成员、不问周次**）；`members` 为空时由 otl 提取自动填充。
+1. 读取 `config.json`；缺失文档链接 → **分两次** AskQuestion 先组内、再部门（**禁止合并**；**不问成员、不问周次**）；`members` 为空时由 otl 提取自动填充。
 2. 对 `team_report`、`dept_report` 各调用一次 `kso_yundoc_get_file_meta`，记录 `file_id`、`drive_id`、`name`、扩展名（`.otl` / `.xlsx` / `.et` / `.docx`）。
 3. 若小组与部门文档格式组合不在支持列表，告知用户并停止。
 
@@ -360,11 +360,11 @@ python skills/drive/run.py update <dept_link_id> <patched-file> --confirm
 
 ## 首次配置引导
 
-用户**首次**使用时，Agent 用 **AskQuestion** 依次收集（**不要**让用户手改文件）：
+用户**首次**使用时，Agent 用 **AskQuestion** **分两次**收集（**不要**让用户手改文件；**禁止**一题索要两个链接）：
 
-1. **组内周报链接**（`.otl`）
-2. **部门周报链接**（`.ksheet` / 表格）
-3. （可选）四级部门子表名 — 仅当预检无法自动解析 `resolved_sheet` 时再问
+1. **组内周报链接**（`.otl`）或 otl 正文 — **第一次** AskQuestion，只问这一项
+2. **部门周报链接**（`.ksheet` / 表格）— **第二次** AskQuestion，收到组内后再问
+3. （可选）四级部门子表名 — 仅当预检无法自动解析 `resolved_sheet` 时再问（**另起一次**）
 
 **不要向用户收集**：
 

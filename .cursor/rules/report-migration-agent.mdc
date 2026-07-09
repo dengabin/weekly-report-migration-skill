@@ -26,6 +26,6 @@ alwaysApply: false
 - **安装阶段禁止** preflight、禁止 AskQuestion 要文档链接
 - 缺 wps365-read：检查 `vendor/wps365-read`；禁止让用户找目录
 - 缺 wps_sid：**必须 AskQuestion**（题干含 wps-sid-guide 步骤）→ 用户回复后 `setup_wps_sid.py` → 自动续跑；**禁止**仅用正文索要后结束回合
-- 缺 config 链接、缺组名、写回确认：同样**必须 AskQuestion**，不得中断会话
+- 缺 config 链接、缺组名、写回确认：同样**必须 AskQuestion**，不得中断会话；**组内/部门链接分两次问**，禁止合并
 - 写回前必须完成步骤 6 用户确认；仅改指定周次内容列
 - 写回成功后默认清理 `.cache`；用户说「清理缓存」时同样仅清 `.cache`（不删 config / wps365-read 凭证）；用户说保留时用 `--keep-cache`
