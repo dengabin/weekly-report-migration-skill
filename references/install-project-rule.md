@@ -8,7 +8,7 @@
 | [load-in-other-project.md](load-in-other-project.md) | Agent（逐步手册） |
 | 本文 | 机制说明 |
 
-**一键脚本**：`scripts/workflow/install_to_project.ps1`
+**一键脚本**：`scripts/workflow/install_to_project.py`
 
 ---
 
@@ -26,7 +26,7 @@ Agent 会创建：
 <业务项目>/.cursor/rules/weekly-report-migration.mdc
 ```
 
-之后说「**周报迁移**」或 @该规则即可。`config.json`、`.cache/` 在 **SKILL_ROOT**（粘贴的目录）内。
+之后说「**周报迁移**」或 @该规则即可。`config.json`、`.cache/` 在 **SKILL_ROOT** 的 `profiles/<PROFILE_ID>/`（安装时按业务项目路径自动分配）。
 
 ---
 
@@ -42,8 +42,8 @@ Agent 会创建：
 
 ## 手动安装（Agent 不可用时）
 
-```powershell
-powershell -ExecutionPolicy Bypass -File "d:\branch\skills\report-migration\scripts\workflow\install_to_project.ps1" -SkillRoot "d:\branch\skills\report-migration" -TargetProject "D:\your-app"
+```bash
+python "d:\branch\skills\report-migration\scripts\workflow\install_to_project.py" --skill-root "d:\branch\skills\report-migration" --target-project "D:\your-app"
 ```
 
 ---

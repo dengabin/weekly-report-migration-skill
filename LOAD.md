@@ -17,8 +17,8 @@
 1. **Read** [references/load-in-other-project.md](references/load-in-other-project.md)
 2. **Shell**（`TargetProject` = 当前 Cursor **工作区根**）：
 
-```powershell
-powershell -ExecutionPolicy Bypass -File "<本目录>/scripts/workflow/install_to_project.ps1" -SkillRoot "<本目录>" -TargetProject "<当前工作区根>"
+```bash
+python "<本目录>/scripts/workflow/install_to_project.py" --skill-root "<本目录>" --target-project "<当前工作区根>"
 ```
 
 3. 汇报：已创建 `.cursor/rules/weekly-report-migration.mdc`；迁移时说「**周报迁移**」。
@@ -33,6 +33,7 @@ powershell -ExecutionPolicy Bypass -File "<本目录>/scripts/workflow/install_t
 | 内容 | 位置 |
 |------|------|
 | 指针 Rule（唯一入口） | `<业务项目>/.cursor/rules/weekly-report-migration.mdc` |
-| Skill 本体、`config.json`、`.cache/` | **本目录（SKILL_ROOT）** |
+| Skill 本体 | **本目录（SKILL_ROOT）** |
+| 各业务项目的 `config.json`、`.cache/` | `profiles/<PROFILE_ID>/`（安装时自动创建） |
 
 详见 [references/install-project-rule.md](references/install-project-rule.md)。

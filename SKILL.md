@@ -27,7 +27,7 @@ disable-model-invocation: true
 ```
 
 1. Read [references/load-in-other-project.md](references/load-in-other-project.md)
-2. Shell：`python "<SKILL_ROOT>/scripts/workflow/install_to_project.py" --skill-root "<SKILL_ROOT>" --target-project "<当前工作区根>"`（Windows 亦可调用同名 `.ps1`）
+2. Shell：`python "<SKILL_ROOT>/scripts/workflow/install_to_project.py" --skill-root "<SKILL_ROOT>" --target-project "<当前工作区根>"`
 3. 回复安装结果；若用户同句含「周报迁移」，安装完成后**立即进入场景 B**
 
 场景 A 结束时回复示例：

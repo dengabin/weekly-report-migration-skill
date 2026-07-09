@@ -37,8 +37,6 @@
 python "{SKILL_ROOT}/scripts/workflow/install_to_project.py" --skill-root "{SKILL_ROOT}" --target-project "{TARGET_PROJECT}"
 ```
 
-（Windows 亦可：`powershell -ExecutionPolicy Bypass -File .../install_to_project.ps1 -SkillRoot ... -TargetProject ...`）
-
 生成：`{TARGET_PROJECT}/.cursor/rules/weekly-report-migration.mdc`  
 若已存在则**覆盖更新** `SKILL_ROOT`（幂等）。
 
@@ -88,7 +86,7 @@ SKILL_ROOT/
 | 现象 | 处理 |
 |------|------|
 | 业务项目无 `.cursor` | 脚本自动创建 |
-| Rule 路径旧 | 重跑 `install_to_project.ps1` |
+| Rule 路径旧 | 重跑 `install_to_project.py` |
 | 卸载 | 删除 `weekly-report-migration.mdc` |
 
 ---

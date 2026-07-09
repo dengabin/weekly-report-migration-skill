@@ -142,12 +142,12 @@ Agent 自动配置指针 Rule；迁移时说「**周报迁移**」。
 
 ### 方式 B：打开 Skill 开发仓库当工作区
 
-改 Skill 代码、自测；仅在该仓库内生效。说「加载 skill」确认即可，**不必**跑 `install_to_project.ps1`。
+改 Skill 代码、自测；仅在该仓库内生效。说「加载 skill」确认即可，**不必**跑 `install_to_project.py`。
 
 ### 方式 C：手动安装（Agent 不可用时）
 
-```powershell
-powershell -ExecutionPolicy Bypass -File "<SKILL_ROOT>/scripts/workflow/install_to_project.ps1" -SkillRoot "<SKILL_ROOT>" -TargetProject "D:\your-app"
+```bash
+python "<SKILL_ROOT>/scripts/workflow/install_to_project.py" --skill-root "<SKILL_ROOT>" --target-project "D:\your-app"
 ```
 
 详见 [references/install-project-rule.md](references/install-project-rule.md)。
