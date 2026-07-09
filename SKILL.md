@@ -5,7 +5,7 @@ description: >-
   仅修改目标单元格/段落，不重写整份文档。Agent 必读 references/workflow/INDEX.md 按步骤1-8执行。
   用户指南见 README.md。支持金山文档（kdocs.cn）智能文档 .otl、表格 .xlsx/.et、文字 .docx。
   触发词：周报迁移、填部门周报、同步周报、weekly report migration、复制周报到部门、周报汇总。
-  注意：用户仅说「加载/安装 skill」时不要执行迁移、不要索要文档链接；若用户粘贴 Skill 目录路径则 Read references/load-in-other-project.md 并执行 install_to_project.ps1。
+  注意：用户仅说「加载/安装 skill」时不要执行迁移、不要索要文档链接；若用户粘贴 Skill 目录路径则 Read references/load-in-other-project.md 并执行 install_to_project.py。
 disable-model-invocation: true
 ---
 
@@ -15,7 +15,7 @@ disable-model-invocation: true
 
 | 用户意图 | 典型说法 | Agent 做什么 | **禁止** |
 |----------|----------|--------------|----------|
-| **A. 安装 / 识别 Skill** | 「加载这个 skill」+ **粘贴目录路径**；或在本 Skill 仓库内说「加载 skill」 | **在其它项目**：Read [load-in-other-project.md](references/load-in-other-project.md) → 执行 `install_to_project.ps1` 配置 Rule（**Agent 自动跑**）→ 简短汇报。**在本仓库内**：确认就绪即可 | ❌ 不跑 preflight；❌ 不 AskQuestion 要文档链接；❌ 不 pip install |
+| **A. 安装 / 识别 Skill** | 「加载这个 skill」+ **粘贴目录路径**；或在本 Skill 仓库内说「加载 skill」 | **在其它项目**：Read [load-in-other-project.md](references/load-in-other-project.md) → 执行 `install_to_project.py` 配置 Rule（**Agent 自动跑**）→ 简短汇报。**在本仓库内**：确认就绪即可 | ❌ 不跑 preflight；❌ 不 AskQuestion 要文档链接；❌ 不 pip install |
 | **B. 执行周报迁移** | 「周报迁移」「填部门周报」「同步周报」 | 若已装指针 Rule：Read `SKILL.md`（SKILL_ROOT）→ workflow 1→8 → 预检 → 缺 config 时才问链接 | — |
 
 **只有场景 B 才进入下方迁移流程。**
@@ -27,7 +27,7 @@ disable-model-invocation: true
 ```
 
 1. Read [references/load-in-other-project.md](references/load-in-other-project.md)
-2. Shell：`powershell -ExecutionPolicy Bypass -File "<SKILL_ROOT>/scripts/workflow/install_to_project.ps1" -SkillRoot "<SKILL_ROOT>" -TargetProject "<当前工作区根>"`
+2. Shell：`python "<SKILL_ROOT>/scripts/workflow/install_to_project.py" --skill-root "<SKILL_ROOT>" --target-project "<当前工作区根>"`（Windows 亦可调用同名 `.ps1`）
 3. 回复安装结果；若用户同句含「周报迁移」，安装完成后**立即进入场景 B**
 
 场景 A 结束时回复示例：
@@ -58,7 +58,7 @@ python scripts/workflow/run_preview.py
 **硬性规定**（详见 workflow）：
 
 - ⛔ **必须 TodoWrite（展示 workflow 01→08）**：迁移开始后**第一件事**建 `step01`…`step08` 八项并全程更新；详见 [TODO-TRACKING.md](references/workflow/TODO-TRACKING.md)。与 AskQuestion、禁止临时 py 等**并列**，**不得因改其它约束而删掉或省略**
-- ⛔ **禁止自编脚本**：不得在用户环境新建 `_inspect_*.py` 等临时 Python；只能 Shell 调用 `scripts/**` 与 `run_preview.py` / `apply_migration.py`；失败则读报告 JSON 汇报，**禁止现场改 bug**
+- ⛔ **禁止自编脚本 / 禁止改代码**：不得在用户环境新建 `_inspect_*.py` 等临时 Python；不得修改 Skill 仓库内任意 `.py` 或 workflow 文档「现场打补丁」；只能 Shell 调用 `scripts/**` 已有入口；失败则读报告 JSON 汇报，**禁止现场改 bug**
 - ❌ **禁止**让用户自己运行 `python scripts/...`、pip、或任何终端命令
 - ❌ **禁止**让用户手动配置环境、下载/上传云文档、编辑 config
 - ❌ **禁止**向用户索要组成员名单（必须从组内 otl 自动解析 `## 姓名`）
@@ -148,8 +148,9 @@ Agent 会：读小组文档 → 自动解析成员 → 检查/插入部门表周
 
 1. **八步进度（Todo）**：Agent 会创建「步骤1」～「步骤8」共八项任务，与 workflow 文档一一对应；每完成一步打勾，你能随时看到走到哪一步（**这是强制要求，不会省略**）。
 2. **子表解析结果**：例如 `resolved_sheet: "你的子表名"`，`resolve_reason: 子表名 contains 匹配`
-3. **迁移预览表**：成员 | 目标子表 | 单元格（如 `C5`）| 内容摘要
-4. **确认后**才写入；其它子表、其它组、其它周列**不会被改动**
+3. **迁移预览表**：成员 | 目标子表 | 单元格（如 `C5`）| 内容摘要（每人前 60–80 字）
+4. **禁止**在对话中粘贴全员周报全文；预览只展示摘要，详情在 `.cache/patch-plan.json`
+5. **确认后**才写入；其它子表、其它组、其它周列**不会被改动**
 
 ---
 
@@ -177,7 +178,7 @@ Agent 会：读小组文档 → 自动解析成员 → 检查/插入部门表周
 
 ## 配置文件
 
-路径：**本 SKILL.md 同级** `config.json`。不存在时复制 `config.template.json` 并引导用户填写。
+路径：业务项目已装指针 Rule 时，`{SKILL_ROOT}/profiles/<PROFILE_ID>/config.json`（迁移前将指针 Rule 的 `PROFILE` 写入 `{SKILL_ROOT}/.active-profile`）；根目录 `config.json` 仍兼容。不存在时复制 `config.template.json` 并引导用户填写。
 
 关键字段：
 

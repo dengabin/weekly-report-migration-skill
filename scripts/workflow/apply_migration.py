@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
-from paths import CACHE, SCRIPTS_ROOT, SKILL_ROOT, find_dept_ksheet, setup_sys_path  # noqa: E402
+from paths import cache_dir, default_config_path, resolve_config_path, SCRIPTS_ROOT, SKILL_ROOT, find_dept_ksheet, setup_sys_path  # noqa: E402
 from subprocess_utils import configure_stdio, run_skill_cmd  # noqa: E402
 
 configure_stdio()
@@ -157,12 +157,14 @@ def main() -> int:
         help="写回成功后保留 .cache 中间产物（默认会清理）",
     )
     args = parser.parse_args()
+    config_arg = str(resolve_config_path(args.config))
 
-    cfg = load_json_file(SKILL_ROOT / args.config)
+    cfg = load_json_file(resolve_config_path(args.config))
     if args.week:
         cfg["week"] = args.week
 
-    restore_raw_content(CACHE / "extracted.json")
+    c = cache_dir()
+    restore_raw_content(c / "extracted.json")
 
     if not args.skip_bullet_format:
         if run_step(
@@ -170,9 +172,9 @@ def main() -> int:
                 sys.executable,
                 str(EXTRACT / "format_otl_for_ksheet.py"),
                 "--input",
-                str(CACHE / "extracted.json"),
+                str(c / "extracted.json"),
                 "--kdc-json",
-                str(CACHE / "dept-content.json"),
+                str(c / "dept-content.json"),
                 "--sheet-name",
                 (cfg.get("dept_sheet") or {}).get("sheet_name") or "",
                 "--in-place",
@@ -186,9 +188,9 @@ def main() -> int:
         wps_root = find_wps365_read_root(cfg)
         if sid and wps_root:
             print(f">>> download {link_id}", flush=True)
-            run_drive(wps_root, ["download", link_id, "--dir", str(CACHE)])
+            run_drive(wps_root, ["download", link_id, "--dir", str(c)])
 
-    input_path = args.input or find_dept_ksheet(CACHE, cfg)
+    input_path = args.input or find_dept_ksheet(c, cfg)
     if not input_path or not input_path.exists():
         print("未找到部门 ksheet，请先运行 scripts/workflow/preflight.py", file=sys.stderr)
         return 1
@@ -210,32 +212,32 @@ def main() -> int:
             sys.executable,
             str(WORKFLOW / "ensure_week_column.py"),
             "--config",
-            args.config,
+            config_arg,
         ]
         if args.week:
             ensure_cmd.extend(["--week", args.week])
         if run_step(ensure_cmd) != 0:
             return 1
-        input_path = find_dept_ksheet(CACHE, cfg) or input_path
+        input_path = find_dept_ksheet(c, cfg) or input_path
 
-    plan_src = ["--dept-ksheet", str(input_path)] if input_path.suffix.lower() == ".ksheet" else ["--dept-kdc-json", str(CACHE / "dept-content.json")]
+    plan_src = ["--dept-ksheet", str(input_path)] if input_path.suffix.lower() == ".ksheet" else ["--dept-kdc-json", str(c / "dept-content.json")]
     if run_step(
         [
             sys.executable,
             str(PLAN / "plan_sheet_patches.py"),
             "--config",
-            args.config,
+            config_arg,
             *plan_src,
             "--extracted",
-            str(CACHE / "extracted.json"),
+            str(c / "extracted.json"),
             "--output",
-            str(CACHE / "patch-plan.json"),
+            str(c / "patch-plan.json"),
         ]
     ) != 0:
         return 1
 
-    plan = load_json_file(CACHE / "patch-plan.json")
-    extracted = load_json_file(CACHE / "extracted.json")
+    plan = load_json_file(c / "patch-plan.json")
+    extracted = load_json_file(c / "extracted.json")
 
     ready = [p for p in plan.get("patches", []) if p.get("status") == "ready"]
     if len(ready) != len(cfg.get("members", [])):
@@ -243,7 +245,7 @@ def main() -> int:
         print(f"补丁计划未全部 ready，缺失: {missing}", file=sys.stderr)
         return 1
 
-    output = CACHE / "dept-report-patched.ksheet"
+    output = c / "dept-report-patched.ksheet"
     patch_script = PATCH / "patch_ksheet_zip.py"
     if input_path.suffix.lower() != ".ksheet":
         patch_script = PATCH / "patch_sheet.py"
@@ -255,9 +257,9 @@ def main() -> int:
         "--input",
         str(input_path),
         "--plan",
-        str(CACHE / "patch-plan.json"),
+        str(c / "patch-plan.json"),
         "--extracted",
-        str(CACHE / "extracted.json"),
+        str(c / "extracted.json"),
         "--output",
         str(output),
     ]
@@ -326,7 +328,7 @@ def main() -> int:
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
     if args.keep_cache:
-        (CACHE / "apply-report.json").write_text(
+        (c / "apply-report.json").write_text(
             json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         print("\n已保留 .cache（--keep-cache）。", flush=True)

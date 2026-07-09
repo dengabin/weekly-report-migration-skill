@@ -15,7 +15,14 @@ alwaysApply: false
 {{SKILL_ROOT}}
 ```
 
-`config.json`、`wps_sid`、`.cache/` 均写在 **SKILL_ROOT** 下，不污染当前业务项目。
+## PROFILE（业务项目 config/.cache 隔离）
+
+```
+{{PROFILE_ID}}
+```
+
+Agent 执行迁移前：将上述 id 写入 `{SKILL_ROOT}/.active-profile`（一行），再跑脚本。  
+`config.json`、`.cache/` 位于 `{SKILL_ROOT}/profiles/<PROFILE_ID>/`，不与其它业务项目混用。
 
 ## 触发条件（满足任一即执行）
 
@@ -27,14 +34,14 @@ alwaysApply: false
 
 ## 执行步骤（Agent 必须遵守）
 
-1. **TodoWrite** 八步 `step01`…`step08`（定义见 `{SKILL_ROOT}/references/workflow/TODO-TRACKING.md`）
-2. **Read** `{SKILL_ROOT}/SKILL.md`
+1. **TodoWrite** 八步 `step01`…`step08`（**强制**；模板见 `{SKILL_ROOT}/references/workflow/TODO-TRACKING.md`）
+2. **Read** `{SKILL_ROOT}/SKILL.md`；指针 Rule **PROFILE** → 写入 `{SKILL_ROOT}/.active-profile`
 3. **Read** `{SKILL_ROOT}/references/workflow/INDEX.md`，按 01→08 执行
-4. 所有 Shell 命令 **`cwd` = SKILL_ROOT**；只调用 `{SKILL_ROOT}/scripts/**`，禁止新建临时 `.py`
+4. 所有 Shell **`cwd` = SKILL_ROOT**；只调用 `{SKILL_ROOT}/scripts/**`；**禁止**新建临时 `.py`；**禁止**迁移过程中改代码
 5. 约束以 SKILL.md 与 `{SKILL_ROOT}/.cursor/rules/report-migration-agent.mdc` 为准
 
 ## 不要做的事
 
-- ❌ 不要在业务项目根目录找 `config.json`（在 SKILL_ROOT）
+- ❌ 不要在业务项目根目录找 `config.json`（在 `{SKILL_ROOT}/profiles/<PROFILE>/`）
 - ❌ 不要安装 `.cursor/skills/` 或追求 `/` 菜单（本 Skill 仅用一个 `.mdc`）
 - ❌ 不要因本规则已加载而跳过 Read SKILL.md

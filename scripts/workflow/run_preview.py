@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
-from paths import CACHE, SCRIPTS_ROOT, SKILL_ROOT, find_dept_ksheet  # noqa: E402
+from paths import cache_dir, default_config_path, resolve_config_path, SCRIPTS_ROOT, SKILL_ROOT, find_dept_ksheet  # noqa: E402
 from subprocess_utils import configure_stdio, run_skill_cmd  # noqa: E402
 
 configure_stdio()
@@ -34,15 +34,15 @@ def main() -> int:
         help="相对系统日历：0/本周、1/上周、2/上上周（优先于 --week）",
     )
     args = parser.parse_args()
+    config_arg = str(resolve_config_path(args.config))
+    c = cache_dir()
 
-    CACHE.mkdir(parents=True, exist_ok=True)
-
-    code = run([sys.executable, str(WORKFLOW / "preflight.py"), "--config", args.config])
+    code = run([sys.executable, str(WORKFLOW / "preflight.py"), "--config", config_arg])
     if code == 2:
         print("\n需要 WPS_SID：请运行 python scripts/workflow/setup_wps_sid.py <你的wps_sid>", file=sys.stderr)
         return code
     if code == 4:
-        report_path = CACHE / "preflight-report.json"
+        report_path = c / "preflight-report.json"
         if report_path.exists():
             print(report_path.read_text(encoding="utf-8"))
         print(
@@ -53,12 +53,12 @@ def main() -> int:
         )
         return code
     if code != 0:
-        report_path = CACHE / "preflight-report.json"
+        report_path = c / "preflight-report.json"
         if report_path.exists():
             print(report_path.read_text(encoding="utf-8"))
         return code
 
-    team_md = CACHE / "team-report.md"
+    team_md = c / "team-report.md"
     if not team_md.exists():
         print("预检未生成 team-report.md", file=sys.stderr)
         return 1
@@ -69,7 +69,7 @@ def main() -> int:
         "--markdown",
         str(team_md),
         "--output",
-        str(CACHE / "extracted.json"),
+        str(c / "extracted.json"),
     ]
     if args.relative_week is not None:
         extract_cmd.extend(["--relative-week", str(args.relative_week)])
@@ -82,9 +82,9 @@ def main() -> int:
         sys.executable,
         str(PLAN / "build_config_from_extracted.py"),
         "--config",
-        args.config,
+        config_arg,
         "--extracted",
-        str(CACHE / "extracted.json"),
+        str(c / "extracted.json"),
     ]
     if args.week:
         build_cmd.extend(["--week", args.week])
@@ -95,20 +95,20 @@ def main() -> int:
         sys.executable,
         str(PLAN / "resolve_team_name.py"),
         "--config",
-        args.config,
+        config_arg,
         "--extracted",
-        str(CACHE / "extracted.json"),
+        str(c / "extracted.json"),
         "--dept-kdc-json",
-        str(CACHE / "dept-content.json"),
+        str(c / "dept-content.json"),
         "--dept-markdown",
-        str(CACHE / "dept-report.md"),
+        str(c / "dept-report.md"),
     ]
-    dept_ksheet = find_dept_ksheet(CACHE)
+    dept_ksheet = find_dept_ksheet(c)
     if dept_ksheet:
         resolve_cmd.extend(["--dept-ksheet", str(dept_ksheet)])
     code = run(resolve_cmd)
     if code == 3:
-        report_path = CACHE / "team-resolve.json"
+        report_path = c / "team-resolve.json"
         if report_path.exists():
             report = json.loads(report_path.read_text(encoding="utf-8"))
             print(report_path.read_text(encoding="utf-8"), file=sys.stderr)
@@ -126,7 +126,7 @@ def main() -> int:
         sys.executable,
         str(WORKFLOW / "ensure_week_column.py"),
         "--config",
-        args.config,
+        config_arg,
     ]
     if args.week:
         ensure_col_cmd.extend(["--week", args.week])
@@ -137,15 +137,15 @@ def main() -> int:
         sys.executable,
         str(EXTRACT / "format_otl_for_ksheet.py"),
         "--input",
-        str(CACHE / "extracted.json"),
+        str(c / "extracted.json"),
         "--kdc-json",
-        str(CACHE / "dept-content.json"),
+        str(c / "dept-content.json"),
         "--in-place",
     ]
     if run(format_cmd) != 0:
         return 1
 
-    dept_md = CACHE / "dept-report.md"
+    dept_md = c / "dept-report.md"
     if not dept_md.exists():
         print("预检未生成 dept-report.md", file=sys.stderr)
         return 1
@@ -154,20 +154,20 @@ def main() -> int:
         sys.executable,
         str(PLAN / "plan_sheet_patches.py"),
         "--config",
-        args.config,
+        config_arg,
         "--extracted",
-        str(CACHE / "extracted.json"),
+        str(c / "extracted.json"),
         "--output",
-        str(CACHE / "patch-plan.json"),
+        str(c / "patch-plan.json"),
     ]
-    dept_ksheet = find_dept_ksheet(CACHE)
+    dept_ksheet = find_dept_ksheet(c)
     if dept_ksheet:
         plan_cmd.extend(["--dept-ksheet", str(dept_ksheet)])
     else:
-        plan_cmd.extend(["--dept-kdc-json", str(CACHE / "dept-content.json")])
+        plan_cmd.extend(["--dept-kdc-json", str(c / "dept-content.json")])
     code = run(plan_cmd)
     if code == 0:
-        plan = json.loads((CACHE / "patch-plan.json").read_text(encoding="utf-8"))
+        plan = json.loads((c / "patch-plan.json").read_text(encoding="utf-8"))
         print("\n=== 迁移预览摘要 ===")
         print(f"子表: {plan.get('resolved_sheet')}")
         for p in plan.get("patches", []):

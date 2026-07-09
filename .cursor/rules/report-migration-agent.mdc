@@ -10,7 +10,7 @@ alwaysApply: false
 
 | 用户说 | 做什么 |
 |--------|--------|
-| 「加载 / 安装 skill」+ **粘贴 Skill 目录路径** | Read `{路径}/references/load-in-other-project.md` → 执行 `install_to_project.ps1` 配置当前项目的 Rule → **结束** |
+| 「加载 / 安装 skill」+ **粘贴 Skill 目录路径** | Read `{路径}/references/load-in-other-project.md` → 执行 `install_to_project.py` 配置当前项目的 Rule → **结束** |
 | 「加载 / 安装 skill」（无路径，且工作区即 Skill 仓库） | 确认就绪 → **结束** |
 | 「周报迁移」等触发词 | **先 TodoWrite 八步** → Read SKILL_ROOT 下 workflow → 步骤 1→8 |
 
@@ -38,12 +38,15 @@ TodoWrite(merge=false) → step01 in_progress，step02–08 pending
 ## 执行迁移时
 
 1. **先** TodoWrite 八步（上节）
-2. **再** `Read` `references/workflow/INDEX.md`，按序执行 `01-…md` 至 `08-…md`
-3. 用户指南见根目录 `README.md`
+2. 指针 Rule 含 `PROFILE` → 写入 `{SKILL_ROOT}/.active-profile`（一行）；`config.json` / `.cache` 在 `profiles/<PROFILE>/`
+3. **再** `Read` `references/workflow/INDEX.md`，按序执行 `01-…md` 至 `08-…md`；Shell **`cwd` = SKILL_ROOT**
+4. 用户指南见根目录 `README.md`
 
 ## 其它硬性规定
 
-- **禁止**在用户环境新建/运行临时 `.py`（如 `_inspect_*.py`）；只能用 `scripts/**` 已有入口；脚本失败只汇报 + 按 workflow 续跑，禁止现场改 bug
+- **禁止**在用户环境新建/运行临时 `.py`（如 `_inspect_*.py`）；**禁止**迁移过程中修改 Skill 内任意 `.py`；只能用 `scripts/**` 已有入口；脚本失败只汇报 + 按 workflow 续跑，禁止现场改 bug
+- 预览只展示姓名 + 单元格 + 摘要；**禁止**在对话贴全员周报全文
+- 用户说「**更新周报迁移的文档链接**」→ 分两次 AskQuestion 覆盖 `team_report` / `dept_report` 的 `link_id`（见 workflow 02 §2.6）
 - 禁止让用户跑 python/pip；禁止索要成员名单；未指定周次时不询问
 - 部门表多组：姓名能**唯一**对应则不问组名；无法确定或子表 tab 多候选时**必须 AskQuestion**，**禁止猜**（见 `team-name-resolution.md` §1.1）
 - **安装阶段禁止** preflight、禁止 AskQuestion 要文档链接

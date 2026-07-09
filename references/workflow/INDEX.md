@@ -37,7 +37,7 @@
 
 | 阶段 | Agent 执行的命令 |
 |------|------------------|
-| 加载到业务项目 | `install_to_project.ps1`（用户说「加载 skill + 路径」时，**cwd** 任意，见 load-in-other-project.md） |
+| 加载到业务项目 | `python scripts/workflow/install_to_project.py`（用户说「加载 skill + 路径」时，**cwd** 任意，见 load-in-other-project.md） |
 | 步骤 3 | `pip install -r requirements.txt` → `python scripts/workflow/preflight.py`（**cwd = SKILL_ROOT**） |
 | 步骤 5 | `python scripts/workflow/run_preview.py`（preflight → extract → build_config → resolve_team → ensure_week → format → plan） |
 | 步骤 7 | `python scripts/workflow/apply_migration.py --upload`（format → ensure_week → plan → patch → upload） |

@@ -22,7 +22,7 @@
 ### 1. 解析并校验 SKILL_ROOT
 
 - 从用户消息提取目录路径，规范化为绝对路径
-- 确认存在 `{SKILL_ROOT}/SKILL.md` 与 `{SKILL_ROOT}/scripts/workflow/install_to_project.ps1`
+- 确认存在 `{SKILL_ROOT}/SKILL.md` 与 `{SKILL_ROOT}/scripts/workflow/install_to_project.py`
 - 不存在 → 告知用户路径无效，**停止**
 
 ### 2. 确定业务项目根目录 TARGET_PROJECT
@@ -33,9 +33,11 @@
 
 ### 3. 自动安装指针 Rule（仅此一步，不装 Skill 目录）
 
-```powershell
-powershell -ExecutionPolicy Bypass -File "{SKILL_ROOT}/scripts/workflow/install_to_project.ps1" -SkillRoot "{SKILL_ROOT}" -TargetProject "{TARGET_PROJECT}"
+```bash
+python "{SKILL_ROOT}/scripts/workflow/install_to_project.py" --skill-root "{SKILL_ROOT}" --target-project "{TARGET_PROJECT}"
 ```
+
+（Windows 亦可：`powershell -ExecutionPolicy Bypass -File .../install_to_project.ps1 -SkillRoot ... -TargetProject ...`）
 
 生成：`{TARGET_PROJECT}/.cursor/rules/weekly-report-migration.mdc`  
 若已存在则**覆盖更新** `SKILL_ROOT`（幂等）。
@@ -73,8 +75,9 @@ TARGET_PROJECT/
 
 SKILL_ROOT/
   SKILL.md
-  config.json
-  .cache/
+  profiles/<业务项目 profile>/
+    config.json
+    .cache/
   scripts/...
 ```
 

@@ -276,9 +276,13 @@ Agent：已写回，请 Ctrl+F5 刷新部门表
 
 ### 本地缓存与 config
 
-写回成功后默认清空 `.cache/`（中间文件）。**下次迁移会重新从云端拉**组内 otl 与部门表，不靠上次 `.cache`。
+写回成功后默认清空当前 profile 的 `.cache/`。
 
-`config.json`、`wps_sid` 写在 **Skill 目录（SKILL_ROOT）** 内，不在业务项目根目录。会保留文档链接与凭证；多组分区时 `team_name` 每次迁移会按最新部门表重算，平铺表则主要保留 `dept_sheet.layout` 与 `sheet_name`。若换了部门文档，说「**更新周报迁移的文档链接**」。
+`config.json`、`wps_sid` 写在 **Skill 目录** 内：安装指针 Rule 后，每个业务项目有独立 **`profiles/<id>/`**（config + cache），互不混用。根目录旧版 `config.json` 仍兼容。
+
+**换文档链接**：说「**更新周报迁移的文档链接**」，或迁移时直接说「组内/部门链接换了」并贴新 URL；不必删 config。
+
+**多团队**：不同业务项目各装一次指针 Rule 即可自动分 profile；勿多人共用一个 profile 目录。
 
 ### `wps_sid` 会过期
 

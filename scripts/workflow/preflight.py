@@ -16,7 +16,7 @@ from wps365_bridge import (  # noqa: E402
     resolve_wps_sid,
     run_drive,
 )
-from paths import SKILL_ROOT, find_dept_ksheet  # noqa: E402
+from paths import cache_dir, default_config_path, resolve_config_path, SKILL_ROOT, find_dept_ksheet  # noqa: E402
 from subprocess_utils import configure_stdio  # noqa: E402
 
 NEED_SID = 2
@@ -25,10 +25,11 @@ FAIL = 1
 OK = 0
 
 
-def load_config(path: Path) -> dict:
-    if not path.exists():
-        raise FileNotFoundError(f"缺少配置文件: {path}")
-    return json.loads(path.read_text(encoding="utf-8"))
+def load_config(path: Path | None) -> dict:
+    cfg_path = resolve_config_path(path)
+    if not cfg_path.exists():
+        raise FileNotFoundError(f"缺少配置文件: {cfg_path}")
+    return json.loads(cfg_path.read_text(encoding="utf-8"))
 
 
 def check_python_deps() -> dict:
@@ -66,24 +67,27 @@ def resolve_sheet_name(sheet_names: list[str], cfg: dict) -> tuple[str | None, s
 def main() -> int:
     configure_stdio()
     parser = argparse.ArgumentParser(description="周报迁移 Skill 预检")
-    parser.add_argument("--config", type=Path, default=SKILL_ROOT / "config.json")
-    parser.add_argument("--output", type=Path, default=SKILL_ROOT / ".cache" / "preflight-report.json")
+    parser.add_argument("--config", type=Path, default=None)
+    parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--skip-download", action="store_true")
     args = parser.parse_args()
+    config_path = resolve_config_path(args.config)
+    output_path = args.output or cache_dir() / "preflight-report.json"
 
     report: dict = {
         "skill_root": str(SKILL_ROOT),
+        "workspace_root": str(config_path.parent),
         "status": "running",
         "checks": {},
     }
 
     try:
-        cfg = load_config(args.config)
+        cfg = load_config(config_path)
     except FileNotFoundError as e:
         report["status"] = "need_config"
         report["error"] = str(e)
         report["hint"] = "复制 config.template.json 为 config.json 并填写链接"
-        _write_report(args.output, report)
+        _write_report(output_path, report)
         return FAIL
 
     report["team_name"] = cfg.get("team_name")
@@ -94,12 +98,12 @@ def main() -> int:
     if not deps["ok"]:
         report["status"] = "need_deps"
         report["hint"] = f"pip install -r requirements.txt  # 另需: {', '.join(deps['missing'])}"
-        _write_report(args.output, report)
+        _write_report(output_path, report)
         return FAIL
 
     wps_root = find_wps365_read_root(cfg)
     if not wps_root:
-        wps_root = ensure_wps365_read(cfg, write_config_root=args.config)
+        wps_root = ensure_wps365_read(cfg, write_config_root=config_path)
     report["checks"]["wps365_read"] = {
         "ok": wps_root is not None,
         "root": str(wps_root) if wps_root else None,
@@ -111,7 +115,7 @@ def main() -> int:
             "仍失败时在 config.json 设置 wps365_read.repo_url 或环境变量 WPS365_READ_REPO_URL。"
             "禁止让用户手动找目录。"
         )
-        _write_report(args.output, report)
+        _write_report(output_path, report)
         return FAIL
 
     sid, sid_source = resolve_wps_sid(cfg)
@@ -127,7 +131,7 @@ def main() -> int:
             "或设置环境变量 WPS_SID。获取方式见 references/ksheet-mcp-limitation.md"
         )
         report["auth_template"] = str(SKILL_ROOT / "assets" / "config" / "auth.yaml.template")
-        _write_report(args.output, report)
+        _write_report(output_path, report)
         return NEED_SID
 
     dept = cfg.get("dept_report") or {}
@@ -150,7 +154,7 @@ def main() -> int:
             report["status"] = "dept_read_failed"
             report["error"] = (proc.stderr or proc.stdout or "")[:2000]
             report["hint"] = "WPS_SID 可能已过期，请从浏览器重新复制 wps_sid"
-            _write_report(args.output, report)
+            _write_report(output_path, report)
             return FAIL
 
         try:
@@ -160,7 +164,7 @@ def main() -> int:
         except json.JSONDecodeError as e:
             report["status"] = "dept_parse_failed"
             report["error"] = str(e)
-            _write_report(args.output, report)
+            _write_report(output_path, report)
             return FAIL
 
         content_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -248,7 +252,7 @@ def main() -> int:
             "python scripts/extract/extract_otl_weekly.py --markdown .cache/team-report.md",
             "python scripts/plan/plan_sheet_patches.py --config config.json --dept-kdc-json .cache/dept-content.json --extracted .cache/extracted.json",
         ]
-    _write_report(args.output, report)
+    _write_report(output_path, report)
     print(json.dumps(report, ensure_ascii=False, indent=2))
     if report.get("status") == "need_dept_sheet":
         return NEED_DEPT_SHEET

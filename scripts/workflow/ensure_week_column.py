@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
-from paths import CACHE, SCRIPTS_ROOT, SKILL_ROOT, find_dept_ksheet  # noqa: E402
+from paths import cache_dir, default_config_path, resolve_config_path, SCRIPTS_ROOT, SKILL_ROOT, find_dept_ksheet  # noqa: E402
 from subprocess_utils import configure_stdio, run_skill_cmd, skill_subprocess_env  # noqa: E402
 
 configure_stdio()
@@ -24,18 +24,19 @@ def main() -> int:
     parser.add_argument("--week", default=None)
     args = parser.parse_args()
 
-    cfg = json.loads((SKILL_ROOT / args.config).read_text(encoding="utf-8"))
+    cfg = json.loads(resolve_config_path(args.config).read_text(encoding="utf-8"))
+    c = cache_dir()
     week = args.week or cfg.get("week")
     if not week:
         print("缺少 week", file=sys.stderr)
         return 1
 
-    ksheet = find_dept_ksheet(CACHE)
+    ksheet = find_dept_ksheet(c)
     if not ksheet:
         print("未找到 .cache/*.ksheet，请先 preflight", file=sys.stderr)
         return 1
 
-    pr_path = CACHE / "preflight-report.json"
+    pr_path = c / "preflight-report.json"
     sheet = None
     if pr_path.exists():
         sheet = (
@@ -61,7 +62,7 @@ def main() -> int:
         "--week",
         week,
     ]
-    extracted = CACHE / "extracted.json"
+    extracted = c / "extracted.json"
     if extracted.exists():
         cmd.extend(["--extracted", str(extracted)])
     print(f">>> {' '.join(cmd)}", flush=True)
@@ -77,7 +78,7 @@ def main() -> int:
     if code != 0:
         return code
 
-    report_path = CACHE / "week-column-report.json"
+    report_path = c / "week-column-report.json"
     try:
         text = proc.stdout.strip()
         start = text.find("{")

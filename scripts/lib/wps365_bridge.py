@@ -12,7 +12,7 @@ try:
 except ImportError:
     yaml = None
 
-from paths import CACHE, SKILL_ROOT
+from paths import cache_dir, SKILL_ROOT
 
 AUTH_CANDIDATES = [
     SKILL_ROOT / "assets" / "config" / "auth.yaml",
@@ -241,5 +241,4 @@ def drive_json(wps_root: Path, args: list[str]) -> dict:
 
 
 def ensure_cache() -> Path:
-    CACHE.mkdir(parents=True, exist_ok=True)
-    return CACHE
+    return cache_dir()

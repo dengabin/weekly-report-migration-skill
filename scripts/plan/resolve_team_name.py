@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 
 from ksheet_rows import ksheet_sheet_to_rows  # noqa: E402
-from paths import CACHE, SKILL_ROOT, find_dept_ksheet  # noqa: E402
+from paths import cache_dir, resolve_config_path, SKILL_ROOT, find_dept_ksheet  # noqa: E402
 from sheet_utils import (  # noqa: E402
     apply_flat_sheet_layout_to_config,
     apply_team_name_to_config,
@@ -171,42 +171,27 @@ def resolve_flat_sheet(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="从部门表姓名反推组名")
-    parser.add_argument("--config", type=Path, default=SKILL_ROOT / "config.json")
-    parser.add_argument(
-        "--extracted",
-        type=Path,
-        default=SKILL_ROOT / ".cache" / "extracted.json",
-    )
-    parser.add_argument(
-        "--dept-ksheet",
-        type=Path,
-        default=None,
-        help="已下载部门 ksheet，默认 .cache 中最新",
-    )
-    parser.add_argument(
-        "--dept-kdc-json",
-        type=Path,
-        default=SKILL_ROOT / ".cache" / "dept-content.json",
-    )
-    parser.add_argument(
-        "--dept-markdown",
-        type=Path,
-        default=SKILL_ROOT / ".cache" / "dept-report.md",
-    )
+    parser.add_argument("--config", type=Path, default=None)
+    parser.add_argument("--extracted", type=Path, default=None)
+    parser.add_argument("--dept-ksheet", type=Path, default=None, help="已下载部门 ksheet，默认 .cache 中最新")
+    parser.add_argument("--dept-kdc-json", type=Path, default=None)
+    parser.add_argument("--dept-markdown", type=Path, default=None)
     parser.add_argument("--team-name", default=None, help="用户指定组名时写入 config")
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=SKILL_ROOT / ".cache" / "team-resolve.json",
-    )
+    parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
+    c = cache_dir()
+    config_path = resolve_config_path(args.config)
+    extracted_path = args.extracted or c / "extracted.json"
+    dept_kdc = args.dept_kdc_json or c / "dept-content.json"
+    dept_md = args.dept_markdown or c / "dept-report.md"
+    output_path = args.output or c / "team-resolve.json"
 
-    if not args.extracted.exists():
-        print(f"缺少 {args.extracted}", file=sys.stderr)
+    if not extracted_path.exists():
+        print(f"缺少 {extracted_path}", file=sys.stderr)
         return 1
 
-    cfg = load_json(args.config) if args.config.exists() else {}
-    extracted = load_json(args.extracted)
+    cfg = load_json(config_path) if config_path.exists() else {}
+    extracted = load_json(extracted_path)
     member_names = [m["name"] for m in extracted.get("members", []) if m.get("name")]
     if not member_names:
         print("extracted.json 中无成员", file=sys.stderr)
@@ -214,12 +199,13 @@ def main() -> int:
 
     if args.team_name:
         apply_team_name_to_config(cfg, args.team_name.strip())
-        args.config.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"已写入 team_name={args.team_name!r}")
 
-    ksheet_path = args.dept_ksheet or find_dept_ksheet(CACHE, cfg)
+    ksheet_path = args.dept_ksheet or find_dept_ksheet(c, cfg)
     rows, resolved_sheet, resolve_reason, row_source = rows_from_dept(
-        cfg, ksheet_path, args.dept_kdc_json, args.dept_markdown
+        cfg, ksheet_path, dept_kdc, dept_md
     )
     if not rows:
         payload = {
@@ -227,8 +213,8 @@ def main() -> int:
             "reason": resolve_reason,
             "row_source": row_source,
         }
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 1
 
@@ -249,8 +235,8 @@ def main() -> int:
             members_by_name=members_by_name,
             resolved_sheet=resolved_sheet,
             resolve_reason=resolve_reason,
-            config_path=args.config,
-            output_path=args.output,
+            config_path=config_path,
+            output_path=output_path,
         )
 
     result = resolve_team_from_members(rows, member_names, cfg, members_by_name)
@@ -262,7 +248,7 @@ def main() -> int:
         new_team = result["team_name"]
         apply_team_name_to_config(cfg, new_team)
         persist_resolved_sheet_name(cfg, resolved_sheet)
-        args.config.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+        config_path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
         result["applied"] = True
         if previous_team and previous_team != new_team:
             result["team_name_changed"] = True
@@ -270,8 +256,8 @@ def main() -> int:
             result["reason"] = (
                 f"部门表组名已变更：{previous_team!r} → {new_team!r}，已按最新表头自动更新 config"
             )
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
 
@@ -284,14 +270,14 @@ def main() -> int:
             "resolved_sheet": resolved_sheet,
             "reason": "无法从姓名唯一反推，但 config 组名仍能在本次部门表定位全部成员",
         }
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
 
     result["agent_hint"] = format_team_resolve_agent_message(result)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
     if result["status"] in ("ambiguous", "need_team_name", "not_found"):
