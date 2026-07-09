@@ -17,7 +17,7 @@
 
 ## Agent 必须执行的步骤
 
-0. **Read** `{SKILL_ROOT}/LOAD.md`（本页摘要）与本文全文
+0. **Read** `{SKILL_ROOT}/LOAD.md` 与本文
 
 ### 1. 解析并校验 SKILL_ROOT
 
@@ -27,53 +27,39 @@
 
 ### 2. 确定业务项目根目录 TARGET_PROJECT
 
-- 默认 = **当前 Cursor 工作区根目录**（`workspace root`）
+- 默认 = **当前 Cursor 工作区根目录**
 - 若用户明确指定其它项目路径，用用户指定的
 - **禁止**把 SKILL_ROOT 当成 TARGET_PROJECT
 
-### 3. 自动安装（默认：指针 Rule，不复制 Skill）
-
-在 Shell 中执行（Agent 代跑，不让用户手敲）：
+### 3. 自动安装指针 Rule（仅此一步，不装 Skill 目录）
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "{SKILL_ROOT}/scripts/workflow/install_to_project.ps1" -SkillRoot "{SKILL_ROOT}" -TargetProject "{TARGET_PROJECT}"
 ```
 
-脚本会：
+生成：`{TARGET_PROJECT}/.cursor/rules/weekly-report-migration.mdc`  
+若已存在则**覆盖更新** `SKILL_ROOT`（幂等）。
 
-- 创建 `{TARGET_PROJECT}/.cursor/rules/weekly-report-migration.mdc`
-- 写入正确的 `SKILL_ROOT`
-- 若已存在则**覆盖更新**路径（幂等）
-
-**默认不**安装 `.cursor/skills/`（除非用户明确要求「要 / 菜单」或「要设置里显示」）。
-
-若用户要 Skill 菜单入口，追加参数：
-
-```powershell
-... install_to_project.ps1 ... -WithSkillMenu
-```
+**禁止**安装 `.cursor/skills/` 或配置 `/` 菜单。
 
 ### 4. 向用户汇报（场景 A 结束）
 
-示例回复：
-
-> 已在当前项目配置周报迁移 Skill。  
-> - 指针规则：`.cursor/rules/weekly-report-migration.mdc`  
-> - Skill 本体：`{SKILL_ROOT}`（未复制到本项目）  
+> 已在当前项目配置周报迁移（指针 Rule）。  
+> - 规则：`.cursor/rules/weekly-report-migration.mdc`  
+> - Skill 本体：`{SKILL_ROOT}`  
 >  
-> 需要迁移时说 **「周报迁移」** 或 @weekly-report-migration。  
-> 首次会分两次收集组内 / 部门文档链接。
+> 需要迁移时说 **「周报迁移」** 或 @weekly-report-migration。
 
-**禁止**在本步跑 preflight、**禁止**索要文档链接、**禁止** pip install。
+**禁止**在本步跑 preflight、索要文档链接、pip install。
 
 ### 5. 与场景 B 的边界
 
 | 用户说 | 场景 |
 |--------|------|
-| 加载 / 安装 skill（+ 路径） | **A** → 只装 Rule/可选 Skill 目录 |
+| 加载 / 安装 skill（+ 路径） | **A** → 只装 `.mdc` |
 | 周报迁移、填部门周报… | **B** → Read SKILL.md → workflow 01→08 |
 
-若用户同一句里既给路径又说「周报迁移」→ 先完成步骤 3 安装，**紧接着自动进入场景 B**（不必再等用户二次触发）。
+若用户同一句里既给路径又说「周报迁移」→ 先完成步骤 3，**紧接着进入场景 B**。
 
 ---
 
@@ -83,11 +69,11 @@ powershell -ExecutionPolicy Bypass -File "{SKILL_ROOT}/scripts/workflow/install_
 TARGET_PROJECT/
   .cursor/
     rules/
-      weekly-report-migration.mdc    ← Agent 根据触发词 Read 外部 SKILL
+      weekly-report-migration.mdc
 
-SKILL_ROOT/                          ← 用户粘贴的目录，唯一本体
+SKILL_ROOT/
   SKILL.md
-  config.json                        ← 首次迁移后生成
+  config.json
   .cache/
   scripts/...
 ```
@@ -99,9 +85,9 @@ SKILL_ROOT/                          ← 用户粘贴的目录，唯一本体
 | 现象 | 处理 |
 |------|------|
 | 业务项目无 `.cursor` | 脚本自动创建 |
-| Rule 已存在但路径旧 | 重跑 `install_to_project.ps1` 覆盖 |
-| 用户要卸载 | 删除 `weekly-report-migration.mdc`；可选删除 `.cursor/skills/weekly-report-migration` 联接 |
+| Rule 路径旧 | 重跑 `install_to_project.ps1` |
+| 卸载 | 删除 `weekly-report-migration.mdc` |
 
 ---
 
-**相关**： [LOAD.md](../LOAD.md)、[install-project-skill.md](install-project-skill.md)、[templates/report-migration-pointer.mdc](../templates/report-migration-pointer.mdc)
+**相关**：[LOAD.md](../LOAD.md)、[install-project-rule.md](install-project-rule.md)、[templates/report-migration-pointer.mdc](../templates/report-migration-pointer.mdc)

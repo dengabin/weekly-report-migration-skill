@@ -35,6 +35,6 @@ alwaysApply: false
 
 ## 不要做的事
 
-- ❌ 不要把 Skill 复制进业务项目（除非你还想要 `/` 菜单入口）
 - ❌ 不要在业务项目根目录找 `config.json`（在 SKILL_ROOT）
+- ❌ 不要安装 `.cursor/skills/` 或追求 `/` 菜单（本 Skill 仅用一个 `.mdc`）
 - ❌ 不要因本规则已加载而跳过 Read SKILL.md

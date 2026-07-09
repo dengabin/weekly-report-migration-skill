@@ -130,33 +130,25 @@ https://365.kdocs.cn/l/你的组内otl链接ID
 加载这个 skill：d:\branch\skills\report-migration
 ```
 
-Agent 会 Read 安装文档并**自动**在当前项目创建 `.cursor/rules/weekly-report-migration.mdc`（无需你手跑命令）。
-
-若要 **设置页 / `/` 菜单** 也出现，加上「要 / 菜单」。
+Agent 会 Read 安装文档并**自动**在当前项目创建 `.cursor/rules/weekly-report-migration.mdc`（仅此一个文件，无需手跑命令）。
 
 详见 [references/load-in-other-project.md](references/load-in-other-project.md)。
 
-### 方式 A：贴路径 +「加载 skill」（推荐）
+### 方式 A：贴路径 +「加载 skill」（业务项目，推荐）
 
 Agent 自动配置指针 Rule；迁移时说「**周报迁移**」。
 
-### 方式 B：需要 `/` 菜单时
+### 方式 B：打开 Skill 开发仓库当工作区
 
-```
-加载这个 skill：d:\branch\skills\report-migration，要 / 菜单
-```
+改 Skill 代码、自测；仅在该仓库内生效。说「加载 skill」确认即可，**不必**跑 `install_to_project.ps1`。
 
-### 方式 C：打开 Skill 开发仓库当工作区
-
-改 Skill 代码、自测；仅在该仓库内生效。对 Agent 说「加载 skill」即可，**不必**跑 `install_to_project.ps1`。
-
-### 方式 D：手动安装（Agent 不可用时）
+### 方式 C：手动安装（Agent 不可用时）
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "<SKILL_ROOT>/scripts/workflow/install_to_project.ps1" -SkillRoot "<SKILL_ROOT>" -TargetProject "D:\your-app"
 ```
 
-加 `-WithSkillMenu` 可同时注册 `/` 菜单。详见 [references/install-project-skill.md](references/install-project-skill.md)。
+详见 [references/install-project-rule.md](references/install-project-rule.md)。
 
 ---
 
@@ -247,7 +239,6 @@ Agent：已写回，请 Ctrl+F5 刷新部门表
 | 场景 | 你说 |
 |------|------|
 | 在业务项目首次启用 | `加载这个 skill：d:\path\to\report-migration` |
-| 要设置页 / `/` 菜单 | 同上句末加 `，要 / 菜单` |
 | 仅开发 Skill 仓库内 | `加载 skill` |
 | 迁移最新一周 | `周报迁移` |
 | 迁移日历上周 | `迁移上周周报` |
@@ -288,10 +279,9 @@ Agent：已写回，请 Ctrl+F5 刷新部门表
 
 | 现象 | 怎么办 |
 |------|--------|
-| 不知道从哪开始 | 业务项目里：`加载这个 skill：<路径>` → `周报迁移` |
+| 不知道从哪开始 | 业务项目：`加载这个 skill：<路径>` → `周报迁移` |
 | 说「加载」却开始要链接 | 回复：「我只是加载 skill，还没要迁移」 |
-| `@` / `/` 里搜不到 Skill | **正常**（默认指针 Rule 无 `/` 菜单）；说「周报迁移」或 @weekly-report-migration。要菜单则加载时加「要 / 菜单」 |
-| 设置里看不到 Skill | 同上；或加载时加「要 / 菜单」 |
+| 设置里看不到 / 没有 `/` | **正常**；本 Skill 只用指针 Rule，说「周报迁移」或 @weekly-report-migration |
 | 「上周」迁错了周 | 确认你说的是「日历上周」；otl 上一期 ≠ 日历上周（见上文） |
 | 部门调整了组名 / 组织 | 一般不用重做：下次迁移会重拉部门表并自动更新 `team_name`；无法判断时才再问组名 |
 | 换了部门文档或子表 | 说「更新周报迁移的文档链接」，或删除 `config.json` 后重来 |
@@ -328,7 +318,7 @@ Agent：已写回，请 Ctrl+F5 刷新部门表
 | [LOAD.md](LOAD.md) | **贴路径 +「加载 skill」**时 Agent 入口（用户也可先 @ 本文件） |
 | [SKILL.md](SKILL.md) | Agent 技术入口（用户无需阅读） |
 | [references/load-in-other-project.md](references/load-in-other-project.md) | Agent 自动配置业务项目 Rule 的完整手册 |
-| [references/install-project-skill.md](references/install-project-skill.md) | Rule / Skill 机制对比与手动安装 |
+| [references/install-project-rule.md](references/install-project-rule.md) | 业务项目启用（仅指针 Rule） |
 | [references/wps-sid-guide.md](references/wps-sid-guide.md) | 获取 wps_sid |
 | [references/week-resolution.md](references/week-resolution.md) | 周次与「上周」规则（技术细节） |
 | [references/team-name-resolution.md](references/team-name-resolution.md) | 多组部门表与组名识别 |

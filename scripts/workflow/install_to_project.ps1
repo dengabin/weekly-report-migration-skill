@@ -1,19 +1,10 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-  将周报迁移 Skill 配置到业务项目（默认：指针 Rule；可选：项目级 Skill 菜单）。
-
-.PARAMETER SkillRoot
-  用户粘贴的 Skill 目录（含 SKILL.md）。
-
-.PARAMETER TargetProject
-  业务项目根目录，默认当前目录。
-
-.PARAMETER WithSkillMenu
-  额外创建 .cursor/skills/weekly-report-migration junction（设置页与 / 菜单可见）。
+  Install weekly-report-migration pointer Rule (.mdc) into a business project.
 
 .EXAMPLE
-  pwsh -File install_to_project.ps1 -SkillRoot "d:\branch\skills\report-migration"
+  powershell -ExecutionPolicy Bypass -File install_to_project.ps1 -SkillRoot "d:\branch\skills\report-migration" -TargetProject "D:\my-app"
 #>
 [CmdletBinding()]
 param(
@@ -22,14 +13,14 @@ param(
 
     [string] $TargetProject = (Get-Location).Path,
 
-    [switch] $WithSkillMenu
+    [string] $RuleName = "weekly-report-migration.mdc"
 )
 
 $ErrorActionPreference = "Stop"
 
 function Resolve-FullPath([string]$p) {
     if (-not (Test-Path -LiteralPath $p)) {
-        throw "路径不存在: $p"
+        throw "Path not found: $p"
     }
     return (Resolve-Path -LiteralPath $p).Path
 }
@@ -37,52 +28,36 @@ function Resolve-FullPath([string]$p) {
 $SkillRoot = Resolve-FullPath $SkillRoot
 $TargetProject = Resolve-FullPath $TargetProject
 
-if (-not (Test-Path (Join-Path $SkillRoot "SKILL.md"))) {
-    throw "不是有效的 Skill 目录（缺少 SKILL.md）: $SkillRoot"
+if ($SkillRoot -eq $TargetProject) {
+    throw "TargetProject must not equal SkillRoot; run from a business project root."
 }
 
-$ruleScript = Join-Path $SkillRoot "scripts\workflow\install_project_rule.ps1"
-$skillScript = Join-Path $SkillRoot "scripts\workflow\install_project_skill.ps1"
-if (-not (Test-Path $ruleScript)) {
-    throw "缺少安装脚本: $ruleScript"
+$skillMd = Join-Path $SkillRoot "SKILL.md"
+if (-not (Test-Path $skillMd)) {
+    throw "Invalid skill directory (missing SKILL.md): $SkillRoot"
 }
+
+$template = Join-Path $SkillRoot "templates\report-migration-pointer.mdc"
+if (-not (Test-Path $template)) {
+    throw "Missing template: $template"
+}
+
+$rulesDir = Join-Path $TargetProject ".cursor\rules"
+$dest = Join-Path $rulesDir $RuleName
+
+New-Item -ItemType Directory -Force -Path $rulesDir | Out-Null
+$content = Get-Content $template -Raw -Encoding UTF8
+$content = $content.Replace("{{SKILL_ROOT}}", $SkillRoot.Replace("\", "/"))
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($dest, $content, $utf8NoBom)
 
 $report = [ordered]@{
-    status           = "ok"
-    skill_root       = $SkillRoot
-    target_project   = $TargetProject
-    rule_path        = Join-Path $TargetProject ".cursor\rules\weekly-report-migration.mdc"
-    skill_menu_path  = $null
-    with_skill_menu  = [bool]$WithSkillMenu
-    errors           = @()
-}
-
-try {
-    & $ruleScript -TargetProject $TargetProject -SkillRoot $SkillRoot
-} catch {
-    $report.status = "failed"
-    $report.errors += "rule: $($_.Exception.Message)"
-}
-
-if ($WithSkillMenu) {
-  if (Test-Path $skillScript) {
-    try {
-      & $skillScript -TargetProject $TargetProject -SkillSource $SkillRoot
-      $report.skill_menu_path = Join-Path $TargetProject ".cursor\skills\weekly-report-migration"
-    } catch {
-      $report.status = "partial"
-      $report.errors += "skill_menu: $($_.Exception.Message)"
-    }
-  } else {
-    $report.status = "partial"
-    $report.errors += "skill_menu: 缺少 $skillScript"
-  }
-}
-
-if ($report.errors.Count -gt 0 -and $report.status -eq "ok") {
-  $report.status = "partial"
+    status         = "ok"
+    skill_root     = $SkillRoot
+    target_project = $TargetProject
+    rule_path      = $dest
 }
 
 $report | ConvertTo-Json -Depth 4
-if ($report.status -eq "failed") { exit 1 }
-exit 0
+Write-Host "Installed rule: $dest"
+Write-Host "Say weekly-report-migration or @weekly-report-migration to run."

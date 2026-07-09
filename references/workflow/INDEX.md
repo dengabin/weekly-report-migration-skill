@@ -25,7 +25,7 @@
 5. **防误写（定位确定性）**：子表 tab / 页内组名**仅百分百确定**时可不问用户；任一多候选或 `ambiguous` → **必须 AskQuestion**，禁止模糊猜选。见 [team-name-resolution.md](../team-name-resolution.md) §1.1。
 6. 技术细节延伸阅读（非逐步必读）：  
    - [../load-in-other-project.md](../load-in-other-project.md)（业务项目加载 Skill）  
-   - [../install-project-skill.md](../install-project-skill.md)（Rule / Skill 机制）  
+   - [../install-project-rule.md](../install-project-rule.md)（业务项目装 Rule）  
    - [../wps-sid-guide.md](../wps-sid-guide.md)  
    - [../week-resolution.md](../week-resolution.md)  
    - [../ksheet-mcp-limitation.md](../ksheet-mcp-limitation.md)  
