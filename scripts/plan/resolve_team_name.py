@@ -193,26 +193,26 @@ def main() -> int:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 1
 
-    if is_team_name_set(cfg) and validate_team_in_sheet(rows, member_names, cfg):
-        payload = {
-            "status": "already_set",
-            "team_name": cfg["team_name"],
-            "resolved_sheet": resolved_sheet,
-            "reason": "config 中组名已有效，成员均可在该组区块定位",
-        }
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(json.dumps(payload, ensure_ascii=False, indent=2))
-        return 0
+    previous_team = (cfg.get("team_name") or "").strip()
+    if previous_team in PLACEHOLDER_TEAM_NAMES:
+        previous_team = ""
 
+    # 每次迁移优先用**本次**预检拉取的部门表 + otl 成员重新反推组名（不盲信 config 旧值）
     result = resolve_team_from_members(rows, member_names, cfg)
     result["resolved_sheet"] = resolved_sheet
     result["resolve_reason"] = resolve_reason
 
     if result["status"] == "resolved":
-        apply_team_name_to_config(cfg, result["team_name"])
+        new_team = result["team_name"]
+        apply_team_name_to_config(cfg, new_team)
         args.config.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
         result["applied"] = True
+        if previous_team and previous_team != new_team:
+            result["team_name_changed"] = True
+            result["previous_team_name"] = previous_team
+            result["reason"] = (
+                f"部门表组名已变更：{previous_team!r} → {new_team!r}，已按最新表头自动更新 config"
+            )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         print(json.dumps(result, ensure_ascii=False, indent=2))
@@ -228,6 +228,19 @@ def main() -> int:
             "resolved_sheet": resolved_sheet,
             "reason": "平铺布局，无组标题行分区" + (f"，链接列={link_col}" if link_col is not None else ""),
             "applied": True,
+        }
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+
+    # 自动反推失败时：若 config 旧组名仍能在本次部门表定位全部成员，暂沿用（并标记）
+    if is_team_name_set(cfg) and validate_team_in_sheet(rows, member_names, cfg):
+        payload = {
+            "status": "already_set",
+            "team_name": cfg["team_name"],
+            "resolved_sheet": resolved_sheet,
+            "reason": "无法从姓名唯一反推，但 config 组名仍能在本次部门表定位全部成员",
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

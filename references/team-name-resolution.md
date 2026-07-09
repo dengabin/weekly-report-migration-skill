@@ -96,7 +96,14 @@ Agent 将粘贴内容写入 `.cache/team-report.md`，再走 `extract_otl_weekly
 
 此后 `plan_sheet_patches.py` 的 `find_cell_in_rows` 仅在**该组区块内**匹配成员行，避免写到其它组同名行。
 
-若 `config.json` 已有有效 `team_name` 且全部成员可在该组内定位，脚本返回 `already_set`，跳过重算。
+### 每次迁移都会重算组名（不依赖旧缓存）
+
+- 写回成功后默认清空 `.cache/`，**下次 preflight 会从云端重新下载**部门表与组内 otl，不靠上次中间文件。
+- `config.json` 会保留文档链接与上次的 `team_name`，但 **`resolve_team_name.py` 每次都会用本次部门表 + 本次 otl 成员重新反推**；若部门调整了组标题，会自动更新 `config.team_name`（`team-resolve.json` 可能出现 `team_name_changed`）。
+- **只有**自动反推失败（`ambiguous` / `not_found` / `need_team_name`，退出码 3）时，才 **AskQuestion** 向用户要组名；**不需要**因组名变更而重新要文档链接。
+- 若用户换了部门文档或四级子表，可说「更新周报迁移的文档链接」或删除 `config.json` 后重来。
+
+若自动反推失败、且 config 旧组名仍能在**本次**部门表定位全部成员，脚本返回 `already_set` 暂沿用旧组名。
 
 ---
 
